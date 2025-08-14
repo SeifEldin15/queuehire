@@ -1,0 +1,272 @@
+"use client";
+import type React from "react";
+
+import { useState } from "react";
+import { X, User, Target, FileText, Camera } from "lucide-react";
+import styles from "./page.module.css";
+import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
+
+
+export default function RecruiterPage() {
+	const [profileImage, setProfileImage] = useState<string | null>(null);
+	const [formData, setFormData] = useState({
+		fullName: "",
+		skills_needed : "",
+		bio: "",
+	});
+	const [errors, setErrors] = useState<{ [key: string]: string }>({});
+	const router = useRouter();
+
+const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+	const file = event.target.files?.[0];
+	if (file) {
+		// Show preview
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			setProfileImage(e.target?.result as string);
+		};
+		reader.readAsDataURL(file);
+
+		// Upload to Supabase Storage
+		const { data, error } = await supabase.storage
+			.from("profile-images")
+			.upload(`recruiters/${Date.now()}_${file.name}`, file, {
+				cacheControl: "3600",
+				upsert: false,
+			});
+
+		if (!error && data) {
+			// Get public URL
+			const { data: urlData } = supabase.storage
+				.from("profile-images")
+				.getPublicUrl(data.path);
+			setProfileImage(urlData.publicUrl);
+		}
+	}
+};
+
+	const removeImage = () => {
+		setProfileImage(null);
+	};
+
+	const handleInputChange = (
+		e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+	) => {
+		const { name, value } = e.target;
+		setFormData((prev) => ({ ...prev, [name]: value }));
+		// Clear error when user starts typing
+		if (errors[name]) {
+			setErrors((prev) => ({ ...prev, [name]: "" }));
+		}
+	};
+
+	const validateForm = () => {
+		const newErrors: { [key: string]: string } = {};
+
+		if (!formData.fullName.trim()) {
+			newErrors.fullName = "Full name is required";
+		}
+
+		setErrors(newErrors);
+		return Object.keys(newErrors).length === 0;
+	};
+
+	const handleProceed = async () => {
+		if (validateForm()) {
+			// Build query string
+			const profileData = {
+				fullName: formData.fullName,
+				skills_needed: formData.skills_needed,
+				bio: formData.bio,
+				profile_image: profileImage || "",
+				role: "hiring", // Changed from "recruiter" to match database schema
+			};
+			localStorage.setItem("pendingProfile", JSON.stringify(profileData));
+			router.push("/register/confirm");
+		}
+	};
+
+	const handleSkip = () => {
+		if (validateForm()) {
+			// Skip to next step
+			window.location.href = "/register/confirm";
+		}
+	};
+
+	return (
+		<div className={styles.container}>
+			<div className={styles.wrapper}>
+				<div className={styles.header}>
+					<h1 className={styles.title}>
+						Complete Your Recruiter Profile
+					</h1>
+					<p className={styles.subtitle}>
+					   {` Tell us about yourself and the skills you're looking for
+						to help candidates understand your needs`}
+					</p>
+				</div>
+
+				<div className={styles.formContainer}>
+					<form className={styles.form}>
+						{/* Profile Image Upload */}
+						<div className={styles.imageSection}>
+							<label className={styles.imageLabel}>
+								Profile Picture
+							</label>
+							<div className={styles.imageUploadContainer}>
+								{profileImage ? (
+									<div className={styles.imagePreview}>
+										<img
+											src={
+												profileImage ||
+												"/placeholder.svg"
+											}
+											alt="Profile preview"
+											className={styles.previewImage}
+										/>
+										<button
+											type="button"
+											onClick={removeImage}
+											className={styles.removeImageBtn}
+											aria-label="Remove image"
+										>
+											<X size={16} />
+										</button>
+									</div>
+								) : (
+									<label
+										htmlFor="profileImage"
+										className={styles.uploadArea}
+									>
+										<div className={styles.uploadIcon}>
+											<Camera size={32} />
+										</div>
+										<div className={styles.uploadText}>
+											<span
+												className={styles.uploadTitle}
+											>
+												Upload your photo
+											</span>
+											<span
+												className={styles.uploadSubtext}
+											>
+												PNG, JPG or WEBP (max 5MB)
+											</span>
+										</div>
+										<input
+											type="file"
+											id="profileImage"
+											accept="image/*"
+											onChange={handleImageUpload}
+											className={styles.hiddenInput}
+										/>
+									</label>
+								)}
+							</div>
+						</div>
+
+						{/* Form Fields */}
+						<div className={styles.fieldsGrid}>
+							<div className={styles.fieldGroup}>
+								<label
+									htmlFor="fullName"
+									className={styles.fieldLabel}
+								>
+									<User size={18} />
+									Full Name *
+								</label>
+								<input
+									type="text"
+									id="fullName"
+									name="fullName"
+									value={formData.fullName}
+									onChange={handleInputChange}
+									placeholder="Enter your full name"
+									className={`${styles.input} ${
+										errors.fullName ? styles.inputError : ""
+									}`}
+									required
+								/>
+								{errors.fullName && (
+									<span className={styles.errorText}>
+										{errors.fullName}
+									</span>
+								)}
+							</div>
+
+							<div className={styles.fieldGroup}>
+								<label
+									htmlFor="skillsNeeded"
+									className={styles.fieldLabel}
+								>
+									<Target size={18} />
+									{`Skills You're Looking For`}
+								</label>
+								<input
+									type="text"
+									id="skillsNeeded"
+									name="skills_needed" // CORRECT NAME to match state variable
+									value={formData.skills_needed}
+									onChange={handleInputChange}
+									placeholder="e.g., React, Node.js, UI/UX Design, Python..."
+									className={styles.input}
+								/>
+								<span className={styles.fieldHint}>
+									Separate multiple skills with commas
+								</span>
+							</div>
+
+							<div className={styles.fieldGroup}>
+								<label
+									htmlFor="bio"
+									className={styles.fieldLabel}
+								>
+									<FileText size={18} />
+									About You & Your Company
+								</label>
+								<textarea
+									id="bio"
+									name="bio"
+									value={formData.bio}
+									onChange={handleInputChange}
+									placeholder="Tell candidates about your company culture, what you're looking for in candidates, and what makes your opportunities unique..."
+									className={styles.textarea}
+									rows={4}
+								/>
+								<span className={styles.fieldHint}>
+									Help candidates understand your company and
+									opportunities
+								</span>
+							</div>
+						</div>
+
+						<div className={styles.actionButtons}>
+							<button
+								type="button"
+								onClick={handleSkip}
+								className={styles.skipButton}
+							>
+								Skip for Now
+							</button>
+							<button
+								type="button"
+								onClick={handleProceed}
+								className={styles.proceedButton}
+							>
+								Complete Profile
+							</button>
+						</div>
+
+						<div className={styles.formFooter}>
+							<p className={styles.footerText}>
+								* Required fields. You can always update your
+								profile later in your dashboard.
+							</p>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	);
+}

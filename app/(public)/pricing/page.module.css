@@ -1,0 +1,476 @@
+.container {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0f9ff 100%);
+  }
+  
+  /* Hero Section */
+  .hero {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    padding: 4rem 0;
+    color: white;
+  }
+  
+  .heroContent {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    text-align: center;
+  }
+  
+  .heroTitle {
+    font-size: 3rem;
+    font-weight: 700;
+    margin: 0 0 1rem 0;
+    letter-spacing: -0.02em;
+  }
+  
+  .heroSubtitle {
+    font-size: 1.25rem;
+    margin: 0;
+    opacity: 0.9;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  /* Main Content */
+  .mainContent {
+    background: white;
+    padding: 4rem 0;
+  }
+  
+  .contentContainer {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+  
+  .backLink {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #6b7280;
+    text-decoration: none;
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+    transition: all 0.2s ease;
+  }
+  
+  .backLink:hover {
+    color: #3b82f6;
+    transform: translateX(-4px);
+  }
+  
+  .introSection {
+    text-align: center;
+    margin-bottom: 4rem;
+  }
+  
+  .sectionTitle {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 1rem;
+    line-height: 1.3;
+  }
+  
+  .paragraph {
+    font-size: 1.125rem;
+    color: #374151;
+    line-height: 1.7;
+    margin-bottom: 1.5rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  /* Pricing Grid */
+  .pricingGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-bottom: 4rem;
+  }
+  
+  .pricingCard {
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    border: 2px solid #e5e7eb;
+    position: relative;
+    transition: all 0.3s ease;
+  }
+  
+  .pricingCard:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+  }
+  
+  .popularCard {
+    border-color: #3b82f6;
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+  }
+  
+  .popularCard:hover {
+    transform: scale(1.05) translateY(-4px);
+  }
+  
+  .popularBadge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .planHeader {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .planName {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 1rem;
+  }
+  
+  .planPrice {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 1rem;
+  }
+  
+  .currency {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #6b7280;
+  }
+  
+  .amount {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1;
+  }
+  
+  .period {
+    font-size: 1rem;
+    color: #6b7280;
+  }
+  
+  .planDescription {
+    font-size: 0.95rem;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.5;
+  }
+  
+  .featuresContainer {
+    margin-bottom: 2rem;
+  }
+  
+  .featureItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .featureIcon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 12px;
+  }
+  
+  .included {
+    background: #10b981;
+    color: white;
+  }
+  
+  .notIncluded {
+    background: #e5e7eb;
+    color: #9ca3af;
+  }
+  
+  .featureText {
+    font-size: 14px;
+    color: #374151;
+  }
+  
+  .planFooter {
+    text-align: center;
+  }
+  
+  .upgradeNote {
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+  
+  .upgradeNote p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #6b7280;
+    font-weight: 500;
+  }
+  
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #e5e7eb, transparent);
+    margin: 4rem 0;
+  }
+  
+  /* Additional Info */
+  .additionalInfo {
+    margin-bottom: 4rem;
+  }
+  
+  .benefitsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+  }
+  
+  .benefitItem {
+    text-align: center;
+    padding: 2rem 1rem;
+  }
+  
+  .benefitIcon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+  
+  .benefitItem h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 0.75rem;
+  }
+  
+  .benefitItem p {
+    font-size: 0.95rem;
+    color: #6b7280;
+    line-height: 1.6;
+    margin: 0;
+  }
+  
+  /* FAQ Section */
+  .faqSection {
+    margin-bottom: 4rem;
+  }
+  
+  .faqGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+  }
+  
+  .faqItem {
+    background: #f8fafc;
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+  }
+  
+  .faqItem h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 0.75rem;
+  }
+  
+  .faqItem p {
+    font-size: 0.95rem;
+    color: #6b7280;
+    line-height: 1.6;
+    margin: 0;
+  }
+  
+  /* CTA Section */
+  .ctaSection {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    padding: 4rem 0;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .ctaSection::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+  
+  .ctaContainer {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .ctaContent {
+    text-align: center;
+    color: white;
+  }
+  
+  .ctaTitle {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: white;
+  }
+  
+  .ctaSubtitle {
+    font-size: 1.25rem;
+    margin-bottom: 2rem;
+    opacity: 0.9;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  .ctaButton {
+    background: white;
+    color: #3b82f6;
+    border: none;
+    padding: 1rem 2.5rem;
+    border-radius: 12px;
+    font-size: 1.125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
+    margin-bottom: 1rem;
+  }
+  
+  .ctaButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 255, 255, 0.3);
+  }
+  
+  .ctaNote {
+    font-size: 0.95rem;
+    opacity: 0.8;
+    margin: 0;
+  }
+  
+  .ctaNote a {
+    color: white;
+    text-decoration: underline;
+    font-weight: 500;
+  }
+  
+  .ctaNote a:hover {
+    opacity: 0.8;
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 1024px) {
+    .pricingGrid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  
+    .popularCard {
+      transform: none;
+    }
+  
+    .popularCard:hover {
+      transform: translateY(-4px);
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .heroTitle {
+      font-size: 2.5rem;
+    }
+  
+    .heroSubtitle {
+      font-size: 1.125rem;
+    }
+  
+    .contentContainer {
+      padding: 0 1.5rem;
+    }
+  
+    .pricingGrid {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+  
+    .sectionTitle {
+      font-size: 1.5rem;
+    }
+  
+    .paragraph {
+      font-size: 1rem;
+    }
+  
+    .benefitsGrid,
+    .faqGrid {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+  
+    .ctaTitle {
+      font-size: 2rem;
+    }
+  
+    .ctaSubtitle {
+      font-size: 1.125rem;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .heroTitle {
+      font-size: 2rem;
+    }
+  
+    .contentContainer {
+      padding: 0 1rem;
+    }
+  
+    .pricingCard {
+      padding: 1.5rem;
+    }
+  
+    .amount {
+      font-size: 2.5rem;
+    }
+  
+    .ctaTitle {
+      font-size: 1.75rem;
+    }
+  
+    .ctaButton {
+      width: 100%;
+      max-width: 300px;
+    }
+  }
+  

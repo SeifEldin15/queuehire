@@ -1,0 +1,221 @@
+.footer {
+    padding: 4rem 2rem 2rem;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  
+  .container {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .top {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 4rem;
+    align-items: start;
+  }
+  
+  .logoSection {
+    max-width: 350px;
+  }
+  
+  .logoSection h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0 0 1rem 0;
+    background: linear-gradient(135deg, var(--primary, #0066ff), #4f46e5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.5px;
+  }
+  
+  .logoSection p {
+    color: rgb(75, 85, 99);
+    line-height: 1.6;
+    font-size: 1rem;
+    margin: 0;
+    font-weight: 400;
+  }
+  
+  .linksSection {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4rem;
+  }
+  
+  .navigate h2,
+  .legals h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0 0 1.5rem 0;
+    color: rgb(31, 41, 55);
+    letter-spacing: 0.3px;
+  }
+  
+  .navigate ul,
+  .legals ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  
+  .navigate li a,
+  .legals li a {
+    color: rgb(75, 85, 99);
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 400;
+    transition: all 0.3s ease;
+    padding: 0.3rem 0;
+    display: inline-block;
+    position: relative;
+  }
+  
+  .navigate li a:hover,
+  .legals li a:hover {
+    color: var(--primary, #0066ff);
+    transform: translateX(4px);
+  }
+  
+  .navigate li a::after,
+  .legals li a::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: var(--primary, #0066ff);
+    transition: width 0.3s ease;
+  }
+  
+  .navigate li a:hover::after,
+  .legals li a:hover::after {
+    width: 100%;
+  }
+  
+  .copyright {
+    text-align: center;
+    padding-top: 2rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+  }
+  
+  .copyright p {
+    color: rgb(107, 114, 128);
+    font-size: 0.9rem;
+    margin: 0;
+    font-weight: 400;
+    letter-spacing: 0.3px;
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 1024px) {
+    .footer {
+      padding: 3rem 1.5rem 2rem;
+    }
+  
+    .top {
+      gap: 3rem;
+    }
+  
+    .linksSection {
+      gap: 3rem;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .footer {
+      padding: 2.5rem 1rem 1.5rem;
+    }
+  
+    .top {
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+      text-align: center;
+    }
+  
+    .logoSection {
+      max-width: 100%;
+    }
+  
+    .logoSection h2 {
+      font-size: 1.8rem;
+    }
+  
+    .linksSection {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2rem;
+      justify-items: center;
+    }
+  
+    .navigate,
+    .legals {
+      text-align: center;
+    }
+  
+    .container {
+      gap: 2.5rem;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .footer {
+      padding: 2rem 1rem 1rem;
+    }
+  
+    .logoSection h2 {
+      font-size: 1.6rem;
+    }
+  
+    .logoSection p {
+      font-size: 0.95rem;
+    }
+  
+    .linksSection {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+  
+    .navigate h2,
+    .legals h2 {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+    }
+  
+    .navigate li a,
+    .legals li a {
+      font-size: 0.9rem;
+    }
+  
+    .copyright p {
+      font-size: 0.85rem;
+    }
+  
+    .container {
+      gap: 2rem;
+    }
+  }
+  
+  @media (max-width: 360px) {
+    .footer {
+      padding: 1.5rem 0.75rem 1rem;
+    }
+  
+    .logoSection h2 {
+      font-size: 1.4rem;
+    }
+  
+    .logoSection p {
+      font-size: 0.9rem;
+    }
+  }
+  
