@@ -1,12 +1,5 @@
 import ClientLayout from "@/components/ClientLayout";
 import "./globals.css";
-import { Outfit } from "next/font/google";
-
-const outfit = Outfit({
-	subsets: ["latin"],
-	variable: "--font-outfit",
-	weight: ["400", "500", "600", "700"],
-});
 
 export default function RootLayout({
 	children,
@@ -15,7 +8,7 @@ export default function RootLayout({
 }) {
 	return (
 		<html lang="en">
-			<body className={outfit.className}>
+			<body>
 				<ClientLayout>
 					{children}
 				</ClientLayout>

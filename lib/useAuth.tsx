@@ -27,6 +27,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
+      console.log('Fetching profile for user:', userId);
+      
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -36,6 +38,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching profile:', error);
         return null;
+      }
+
+      // If no profile exists, create a basic one
+      if (!data && userId) {
+        console.log('No profile found, creating basic profile for user:', userId);
+        
+        // Get user info from auth
+        const { data: authUser, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+          console.error('Error getting auth user:', userError);
+          return null;
+        }
+        
+        if (authUser.user) {
+          console.log('Auth user data:', authUser.user);
+          console.log('User metadata:', authUser.user.user_metadata);
+          
+          // Start with minimal required fields that should exist
+          const profileData = {
+            id: userId,
+            email: authUser.user.email!,
+            user_type: authUser.user.user_metadata?.user_type || 'job_seeker'
+          };
+          
+          // Only add optional fields if they exist in the schema
+          // We'll add these one by one to see which ones work
+          const optionalFields: any = {};
+          
+          if (authUser.user.user_metadata?.full_name) {
+            optionalFields.full_name = authUser.user.user_metadata.full_name;
+          }
+          
+          // Try with minimal data first
+          const finalProfileData = { ...profileData, ...optionalFields };
+          
+          console.log('Creating profile with data:', finalProfileData);
+          
+          const { data: newProfile, error: createError } = await supabase
+            .from('users')
+            .insert(finalProfileData)
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Error creating profile:', createError);
+            console.error('Profile data that failed:', profileData);
+            return null;
+          }
+
+          console.log('Successfully created profile:', newProfile);
+          return newProfile;
+        }
       }
 
       return data;

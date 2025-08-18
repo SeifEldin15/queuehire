@@ -237,3 +237,71 @@
   text-decoration: underline;
   color: #1a202c;
 }
+
+/* Password Validation Styles */
+.passwordValidation {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
+.passwordWeak {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+
+.passwordMedium {
+  background-color: #fffbeb;
+  border: 1px solid #fed7aa;
+  color: #d97706;
+}
+
+.passwordStrong {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+}
+
+.passwordErrors {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0 0;
+}
+
+.passwordErrors li {
+  padding: 0.25rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.passwordErrors li::before {
+  content: "×";
+  color: #dc2626;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.passwordStrong .passwordErrors li::before {
+  content: "✓";
+  color: #16a34a;
+}
+
+.strengthIndicator {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.strengthWeak {
+  color: #dc2626;
+}
+
+.strengthMedium {
+  color: #d97706;
+}
+
+.strengthStrong {
+  color: #16a34a;
+}

@@ -2,11 +2,12 @@
 "use client"
 import styles from "./page.module.css";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/useAuth";
 import { supabase } from "@/lib/supabaseClient";
 import { PendingProfile } from "@/lib/types";
+import { validatePassword, validateEmail, sanitizeInput, PasswordValidation } from "@/lib/validation";
 
 export default function FinalRegistrationPage() {
     const [email, setEmail] = useState("");
@@ -15,6 +16,7 @@ export default function FinalRegistrationPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [showVerificationMessage, setShowVerificationMessage] = useState(false);
+    const [passwordValidation, setPasswordValidation] = useState<PasswordValidation | null>(null);
     
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -28,36 +30,57 @@ export default function FinalRegistrationPage() {
     const profile_image = searchParams.get("profile_image") || "";
     const role = searchParams.get("role") || "job_seeker";
 
+    // Real-time password validation
+    useEffect(() => {
+        if (password) {
+            setPasswordValidation(validatePassword(password));
+        } else {
+            setPasswordValidation(null);
+        }
+    }, [password]);
+
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+        
+        // Validate email
+        if (!validateEmail(email)) {
+            setError("Please enter a valid email address");
+            return;
+        }
+        
+        // Validate password
+        const passwordCheck = validatePassword(password);
+        if (!passwordCheck.isValid) {
+            setError(passwordCheck.errors[0]);
+            return;
+        }
         
         if (password !== confirmPassword) {
             setError("Passwords do not match");
             return;
         }
         
-        if (password.length < 6) {
-            setError("Password must be at least 6 characters long");
-            return;
-        }
-        
         setLoading(true);
         
         try {
+            // Sanitize inputs
+            const sanitizedEmail = sanitizeInput(email);
+            const sanitizedFullName = sanitizeInput(fullName);
+            
             // Save profile data to localStorage for after email verification
             const pendingProfile: PendingProfile = {
-                fullName,
+                fullName: sanitizedFullName,
                 role: role as 'job_seeker' | 'hiring',
-                skills: skills || undefined,
-                skills_needed: skills_needed || undefined,
-                bio: bio || undefined,
+                skills: skills ? sanitizeInput(skills) : undefined,
+                skills_needed: skills_needed ? sanitizeInput(skills_needed) : undefined,
+                bio: bio ? sanitizeInput(bio) : undefined,
                 profile_image: profile_image || undefined,
             };
             localStorage.setItem("pendingProfile", JSON.stringify(pendingProfile));
 
-            const { error } = await signUp(email, password, {
-                full_name: fullName,
+            const { error } = await signUp(sanitizedEmail, password, {
+                full_name: sanitizedFullName,
                 user_type: role,
             });
             
@@ -132,6 +155,35 @@ export default function FinalRegistrationPage() {
                         onChange={(e) => setPassword(e.target.value)}
                         required
                     />
+                    
+                    {/* Password Validation Display */}
+                    {passwordValidation && (
+                        <div className={`${styles.passwordValidation} ${
+                            passwordValidation.strength === 'strong' ? styles.passwordStrong :
+                            passwordValidation.strength === 'medium' ? styles.passwordMedium :
+                            styles.passwordWeak
+                        }`}>
+                            <div className={`${styles.strengthIndicator} ${
+                                passwordValidation.strength === 'strong' ? styles.strengthStrong :
+                                passwordValidation.strength === 'medium' ? styles.strengthMedium :
+                                styles.strengthWeak
+                            }`}>
+                                Password Strength: {passwordValidation.strength.charAt(0).toUpperCase() + passwordValidation.strength.slice(1)}
+                            </div>
+                            {passwordValidation.errors.length > 0 && (
+                                <ul className={styles.passwordErrors}>
+                                    {passwordValidation.errors.map((error: string, index: number) => (
+                                        <li key={index}>{error}</li>
+                                    ))}
+                                </ul>
+                            )}
+                            {passwordValidation.isValid && (
+                                <div style={{ color: '#16a34a', fontWeight: '500' }}>
+                                    ✓ Password meets all requirements
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <label className={styles.label}>Confirm Password</label>
                     <input
