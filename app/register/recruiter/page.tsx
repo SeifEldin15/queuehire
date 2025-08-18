@@ -1,14 +1,16 @@
 "use client";
 import type React from "react";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, User, Target, FileText, Camera } from "lucide-react";
 import styles from "./page.module.css";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/useAuth";
 
 
 export default function RecruiterPage() {
+	const { user, profile, refreshProfile } = useAuth();
 	const [profileImage, setProfileImage] = useState<string | null>(null);
 	const [formData, setFormData] = useState({
 		fullName: "",
@@ -16,32 +18,82 @@ export default function RecruiterPage() {
 		bio: "",
 	});
 	const [errors, setErrors] = useState<{ [key: string]: string }>({});
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const router = useRouter();
+
+	// Load existing profile data if user is authenticated
+	useEffect(() => {
+		if (profile) {
+			setFormData({
+				fullName: profile.full_name || "",
+				skills_needed: profile.required_skills || "",
+				bio: profile.professional_bio || "",
+			});
+			if (profile.profile_image) {
+				setProfileImage(profile.profile_image);
+			}
+		}
+	}, [profile]);
 
 const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
 	const file = event.target.files?.[0];
 	if (file) {
-		// Show preview
-		const reader = new FileReader();
-		reader.onload = (e) => {
-			setProfileImage(e.target?.result as string);
-		};
-		reader.readAsDataURL(file);
+		// Validate file size (max 5MB)
+		if (file.size > 5 * 1024 * 1024) {
+			setErrors(prev => ({...prev, image: "Image must be less than 5MB"}));
+			return;
+		}
 
-		// Upload to Supabase Storage
-		const { data, error } = await supabase.storage
-			.from("profile-images")
-			.upload(`recruiters/${Date.now()}_${file.name}`, file, {
-				cacheControl: "3600",
-				upsert: false,
-			});
+		// Validate file type
+		if (!file.type.startsWith('image/')) {
+			setErrors(prev => ({...prev, image: "Please select a valid image file"}));
+			return;
+		}
 
-		if (!error && data) {
-			// Get public URL
-			const { data: urlData } = supabase.storage
+		// Clear previous image errors
+		setErrors(prev => {
+			const newErrors = {...prev};
+			delete newErrors.image;
+			return newErrors;
+		});
+
+		try {
+			// Generate unique filename
+			const fileExt = file.name.split('.').pop();
+			const uniqueId = crypto.randomUUID();
+			const timestamp = Date.now();
+			const fileName = `recruiters/${uniqueId}_${timestamp}.${fileExt}`;
+			
+			console.log('Uploading image with filename:', fileName);
+
+			// Upload to Supabase Storage
+			const { data, error } = await supabase.storage
 				.from("profile-images")
-				.getPublicUrl(data.path);
-			setProfileImage(urlData.publicUrl);
+				.upload(fileName, file, {
+					cacheControl: "3600",
+					upsert: false,
+				});
+
+			if (error) {
+				console.error('Image upload error:', error);
+				setErrors(prev => ({...prev, image: "Failed to upload image. Please try again."}));
+				return;
+			}
+
+			if (data) {
+				console.log('Image uploaded successfully:', data);
+				
+				// Get public URL
+				const { data: urlData } = supabase.storage
+					.from("profile-images")
+					.getPublicUrl(data.path);
+				
+				console.log('Image public URL:', urlData.publicUrl);
+				setProfileImage(urlData.publicUrl);
+			}
+		} catch (err) {
+			console.error('Image upload error:', err);
+			setErrors(prev => ({...prev, image: "Failed to upload image. Please try again."}));
 		}
 	}
 };
@@ -64,8 +116,23 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 	const validateForm = () => {
 		const newErrors: { [key: string]: string } = {};
 
+		// Validate full name
 		if (!formData.fullName.trim()) {
 			newErrors.fullName = "Full name is required";
+		} else if (formData.fullName.trim().length < 2) {
+			newErrors.fullName = "Full name must be at least 2 characters";
+		} else if (formData.fullName.trim().length > 100) {
+			newErrors.fullName = "Full name must be less than 100 characters";
+		}
+
+		// Validate skills needed (optional - only validate max length)
+		if (formData.skills_needed.trim().length > 500) {
+			newErrors.skills_needed = "Skills description must be less than 500 characters";
+		}
+
+		// Validate bio (optional - only validate max length)
+		if (formData.bio.trim().length > 1000) {
+			newErrors.bio = "Bio must be less than 1000 characters";
 		}
 
 		setErrors(newErrors);
@@ -73,17 +140,91 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 	};
 
 	const handleProceed = async () => {
-		if (validateForm()) {
-			// Build query string
-			const profileData = {
-				fullName: formData.fullName,
-				skills_needed: formData.skills_needed,
-				bio: formData.bio,
-				profile_image: profileImage || "",
-				role: "hiring", // Changed from "recruiter" to match database schema
-			};
-			localStorage.setItem("pendingProfile", JSON.stringify(profileData));
-			router.push("/register/confirm");
+		console.log('Complete Profile button clicked!');
+		console.log('Form data:', formData);
+		console.log('Current user:', user);
+		console.log('Current profile:', profile);
+		
+		if (!validateForm()) {
+			console.log('Form validation failed');
+			return;
+		}
+
+		console.log('Form validation passed, proceeding...');
+		setIsSubmitting(true);
+		
+		try {
+			// If user is already authenticated, save directly to database
+			if (user) {
+				console.log('User is authenticated, saving profile to database...');
+				
+				// First, update the auth user metadata for full name
+				const { error: authError } = await supabase.auth.updateUser({
+					data: { full_name: formData.fullName.trim() }
+				});
+
+				if (authError) {
+					console.error('Auth metadata update error:', authError);
+				}
+
+				// Then update the profile data in public.users table
+				const profileUpdateData = {
+					professional_bio: formData.bio.trim(),
+					required_skills: formData.skills_needed.trim(),
+					profile_image: profileImage || "",
+					user_type: "hiring",
+					updated_at: new Date().toISOString()
+				};
+
+				const { error } = await supabase
+					.from('users')
+					.update(profileUpdateData)
+					.eq('id', user.id);
+
+				if (error) {
+					console.error('Profile update error:', error);
+					setErrors(prev => ({...prev, form: `Failed to save profile: ${error.message}`}));
+					return;
+				}
+
+				console.log('Profile updated successfully');
+				
+				// Refresh the profile in context
+				await refreshProfile();
+				
+				// Redirect to dashboard
+				router.push('/dashboard');
+			} else {
+				// User not authenticated, continue with registration flow
+				console.log('User not authenticated, continuing registration flow...');
+				
+				const profileData = {
+					fullName: formData.fullName.trim(),
+					skills_needed: formData.skills_needed.trim(),
+					bio: formData.bio.trim(),
+					profile_image: profileImage || "",
+					role: "hiring",
+				};
+				
+				localStorage.setItem("pendingProfile", JSON.stringify(profileData));
+				console.log('Recruiter profile data saved to localStorage:', profileData);
+				
+				// Create URL with query parameters for the confirm page
+				const params = new URLSearchParams({
+					fullName: formData.fullName.trim(),
+					skills_needed: formData.skills_needed.trim(),
+					bio: formData.bio.trim(),
+					profile_image: profileImage || "",
+					role: "hiring"
+				});
+				
+				router.push(`/register/confirm?${params.toString()}`);
+			}
+		} catch (err) {
+			console.error('Form submission error:', err);
+			setErrors(prev => ({...prev, form: "An error occurred. Please try again."}));
+		} finally {
+			setIsSubmitting(false);
 		}
 	};
 

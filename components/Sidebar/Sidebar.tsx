@@ -11,24 +11,37 @@ export default function Sidebar() {
 	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [profile, setProfile] = useState<any>(null);
 	const [userEmail, setUserEmail] = useState<string>("");
+	const [isLoading, setIsLoading] = useState(true);
 	const pathname = usePathname();
 	const router = useRouter();
 
 	    useEffect(() => {
         const fetchProfile = async () => {
+            setIsLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
                 setProfile(null);
 				setUserEmail("");
+                setIsLoading(false);
                 return;
             }
 		    setUserEmail(user.email || ""); // <-- Get email from Auth
-            const { data } = await supabase
-                .from("profiles")
-                .select("*")
+            
+            // Fetch from 'users' table (not 'profiles')
+            const { data, error } = await supabase
+                .from("users")
+                .select("id, full_name, profile_image, professional_bio, skills_expertise, user_type")
                 .eq("id", user.id)
                 .single();
-            setProfile(data);
+            
+            if (error) {
+                console.error('Error fetching user profile:', error);
+                setProfile(null);
+            } else {
+                console.log('User profile loaded:', data);
+                setProfile(data);
+            }
+            setIsLoading(false);
         };
         fetchProfile();
     }, []);
@@ -98,22 +111,43 @@ export default function Sidebar() {
 					{/* User Profile Section */}
 					<div className={styles.profileSection}>
 						<div className={styles.avatar}>
-                            <span>
-                                {profile?.full_name
-                                    ? profile.full_name[0]
-                                    : "U"}
-                            </span>						
-							</div>
+                            {isLoading ? (
+                                <span>•••</span>
+                            ) : profile?.profile_image ? (
+                                <img 
+                                    src={profile.profile_image} 
+                                    alt="Profile" 
+                                    style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        borderRadius: '50%',
+                                        objectFit: 'cover'
+                                    }}
+                                />
+                            ) : (
+                                <span>
+                                    {profile?.full_name
+                                        ? profile.full_name[0].toUpperCase()
+                                        : userEmail ? userEmail[0].toUpperCase() : "U"}
+                                </span>
+                            )}						
+						</div>
 						<div className={styles.userInfo}>
-							<h3 className={styles.userName}> {profile?.full_name || "User"}</h3>
+							<h3 className={styles.userName}>
+                                {isLoading 
+                                    ? "Loading..." 
+                                    : profile?.full_name || userEmail?.split('@')[0] || "User"}
+                            </h3>
 							<p className={styles.userEmail}>
-								{userEmail || "user@email.com"}
+								{isLoading ? "Loading..." : userEmail || "user@email.com"}
 							</p>
 							<Link
 								href="/profile"
 								className={styles.profileLink}
 							>
-								Seeker Profile
+								{isLoading 
+                                    ? "Profile" 
+                                    : profile?.user_type === 'hiring' ? 'Recruiter Profile' : 'Seeker Profile'}
 							</Link>
 						</div>
 					</div>

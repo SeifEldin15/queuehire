@@ -60,6 +60,12 @@ export default function FinalRegistrationPage() {
             setError("Passwords do not match");
             return;
         }
+
+        // Validate that we have profile data
+        if (!fullName.trim()) {
+            setError("Profile information is missing. Please go back and complete your profile.");
+            return;
+        }
         
         setLoading(true);
         
@@ -79,14 +85,40 @@ export default function FinalRegistrationPage() {
             };
             localStorage.setItem("pendingProfile", JSON.stringify(pendingProfile));
 
+            console.log('Starting registration with data:', {
+                email: sanitizedEmail,
+                fullName: sanitizedFullName,
+                role,
+                hasSkills: !!skills,
+                hasSkillsNeeded: !!skills_needed,
+                hasBio: !!bio,
+                hasImage: !!profile_image
+            });
+
+            console.log('🚀 Attempting signup with:', {
+                email: sanitizedEmail,
+                metadata: {
+                    full_name: sanitizedFullName,
+                    user_type: role,
+                }
+            });
+
             const { error } = await signUp(sanitizedEmail, password, {
                 full_name: sanitizedFullName,
                 user_type: role,
             });
             
             if (error) {
+                console.error('❌ Registration error:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    status: error.status,
+                    code: error.code
+                });
                 setError(error.message);
             } else {
+                console.log('✅ Registration successful, email verification required');
+                console.log('📧 Email should be sent to:', sanitizedEmail);
                 setShowVerificationMessage(true);
             }
         } catch (err) {

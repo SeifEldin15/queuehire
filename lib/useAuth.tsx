@@ -56,22 +56,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('Auth user data:', authUser.user);
           console.log('User metadata:', authUser.user.user_metadata);
           
+          // Check for pending profile data from registration
+          let pendingProfile = null;
+          try {
+            const pendingData = localStorage.getItem('pendingProfile');
+            if (pendingData) {
+              pendingProfile = JSON.parse(pendingData);
+              console.log('Found pending profile data:', pendingProfile);
+            }
+          } catch (err) {
+            console.error('Error parsing pending profile:', err);
+          }
+          
           // Start with minimal required fields that should exist
           const profileData = {
             id: userId,
             email: authUser.user.email!,
-            user_type: authUser.user.user_metadata?.user_type || 'job_seeker'
+            user_type: authUser.user.user_metadata?.user_type || pendingProfile?.role || 'job_seeker'
           };
           
-          // Only add optional fields if they exist in the schema
-          // We'll add these one by one to see which ones work
+          // Add optional fields from auth metadata or pending profile
           const optionalFields: any = {};
           
-          if (authUser.user.user_metadata?.full_name) {
-            optionalFields.full_name = authUser.user.user_metadata.full_name;
+          if (authUser.user.user_metadata?.full_name || pendingProfile?.fullName) {
+            optionalFields.full_name = authUser.user.user_metadata.full_name || pendingProfile?.fullName;
           }
+
+          if (pendingProfile?.bio) {
+            optionalFields.professional_bio = pendingProfile.bio;
+          }
+
+          if (pendingProfile?.skills) {
+            optionalFields.skills_expertise = pendingProfile.skills;
+          }
+
+          if (pendingProfile?.skills_needed) {
+            optionalFields.required_skills = pendingProfile.skills_needed;
+          }
+
+          if (pendingProfile?.profile_image) {
+            optionalFields.profile_image = pendingProfile.profile_image;
+          }
+
+          // Default plan type
+          optionalFields.plan_type = 'Free';
           
-          // Try with minimal data first
           const finalProfileData = { ...profileData, ...optionalFields };
           
           console.log('Creating profile with data:', finalProfileData);
@@ -89,6 +118,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           console.log('Successfully created profile:', newProfile);
+          
+          // Clean up pending profile data after successful creation
+          try {
+            localStorage.removeItem('pendingProfile');
+            console.log('Cleared pending profile data from localStorage');
+          } catch (err) {
+            console.error('Error clearing pending profile:', err);
+          }
+          
           return newProfile;
         }
       }
@@ -148,18 +186,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, metadata?: Record<string, unknown>) => {
     try {
-      console.log('Attempting to sign up with email:', email);
-      const { error } = await supabase.auth.signUp({
+      console.log('🔐 useAuth.signUp called with:', {
+        email,
+        hasPassword: !!password,
+        metadata
+      });
+      
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: metadata
         }
       });
-      console.log('Signup result:', { error });
+      
+      console.log('🔄 Supabase signup response:', {
+        user: data?.user ? {
+          id: data.user.id,
+          email: data.user.email,
+          email_confirmed_at: data.user.email_confirmed_at,
+          confirmation_sent_at: data.user.confirmation_sent_at
+        } : null,
+        session: data?.session ? 'Session created' : 'No session',
+        error: error ? {
+          message: error.message,
+          status: error.status,
+          code: error.code
+        } : null
+      });
+      
       return { error };
     } catch (error) {
-      console.error('Signup error:', error);
+      console.error('💥 Signup error:', error);
       return { error: error as AuthError };
     }
   };
