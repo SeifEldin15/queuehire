@@ -1,4 +1,4 @@
-/* Removed incomplete .container block */
+/* Loading States */
 .loadingContainer {
   display: flex;
   flex-direction: column;

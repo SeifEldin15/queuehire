@@ -50,7 +50,7 @@ export default function SettingsPage() {
                 return;
             }
             const { data } = await supabase
-                .from("users")
+                .from("profiles")
                 .select("*")
                 .eq("id", user.id)
                 .single();

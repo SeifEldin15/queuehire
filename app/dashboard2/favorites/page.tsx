@@ -1,8 +1,7 @@
- "use client";
+"use client";
 
-
-import { ExternalLink, Copy, Trash2, Lock, Search, Filter, Plus } from "lucide-react";
 import { useState, useEffect } from 'react';
+import { Copy, Trash2, Search, Filter, Plus } from "lucide-react";
 import { useAuth } from '@/lib/useAuth';
 import { supabase } from '@/lib/supabaseClient';
 import { UserProfile } from '@/lib/types';
@@ -135,7 +134,40 @@ ${contact.contact_profile.skills_expertise ? `Skills: ${contact.contact_profile.
 
 	return (
 		<div className={styles.container}>
+			<div className={styles.header}>
+				<h1 className={styles.pageTitle}>Saved Contacts</h1>
+				<div className={styles.headerStats}>
+					<span className={styles.contactCount}>
+						{savedContacts.length} contacts
+					</span>
+				</div>
+			</div>
 
+			{/* Search and Filter Controls */}
+			<div className={styles.controls}>
+				<div className={styles.searchContainer}>
+					<Search size={20} />
+					<input
+						type="text"
+						placeholder="Search contacts..."
+						value={searchTerm}
+						onChange={(e) => setSearchTerm(e.target.value)}
+						className={styles.searchInput}
+					/>
+				</div>
+				<div className={styles.filterContainer}>
+					<Filter size={20} />
+					<select
+						value={filterType}
+						onChange={(e) => setFilterType(e.target.value as any)}
+						className={styles.filterSelect}
+					>
+						<option value="all">All Types</option>
+						<option value="job_seeker">Job Seekers</option>
+						<option value="hiring">Hiring Managers</option>
+					</select>
+				</div>
+			</div>
 
 			{error && (
 				<div className={styles.errorMessage}>

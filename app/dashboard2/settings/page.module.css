@@ -65,7 +65,7 @@
   text-align: left;
 }
 
-.dashboardLayout {
+.tabButton:hover {
   background: #f8fafc;
   color: #374151;
 }
