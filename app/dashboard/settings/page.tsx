@@ -49,13 +49,17 @@ export default function SettingsPage() {
                 router.replace("/login");
                 return;
             }
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from("users")
                 .select("*")
                 .eq("id", user.id)
                 .single();
             setProfile(data);
-            setSkillsInput(data?.skills || "");
+            // Set skills based on user type
+            const skillsValue = data?.user_type === "job_seeker" 
+                ? data?.skills_expertise || ""
+                : data?.required_skills || "";
+            setSkillsInput(skillsValue);
             setContactForm({
                 phone: data?.phone || "",
                 linkedin: data?.linkedin || "",
@@ -64,7 +68,7 @@ export default function SettingsPage() {
             });
             setProfileForm({
                 full_name: data?.full_name || "",
-                bio: data?.bio || "",
+                bio: data?.professional_bio || "",
             });
             setLoading(false);
         };
@@ -77,7 +81,7 @@ export default function SettingsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
         const { data, error } = await supabase
-            .from("profiles")
+            .from("users")
             .update(updates)
             .eq("id", user.id)
             .single();
@@ -86,19 +90,24 @@ export default function SettingsPage() {
     };
 
     // Skills logic
-    const skillsArr = (profile?.skills || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+    const skillsValue = profile?.user_type === "job_seeker" 
+        ? profile?.skills_expertise || ""
+        : profile?.required_skills || "";
+    const skillsArr = skillsValue.split(",").map((s: string) => s.trim()).filter(Boolean);
 
     const handleAddSkill = () => {
         if (skillsArr.length >= 8 || !skillsInput.trim()) return;
         const newSkills = [...skillsArr, skillsInput.trim()];
-        updateProfile({ skills: newSkills.join(",") });
+        const updateField = profile?.user_type === "job_seeker" ? "skills_expertise" : "required_skills";
+        updateProfile({ [updateField]: newSkills.join(",") });
         setSkillsInput("");
         setEditSkills(false);
     };
 
     const handleRemoveSkill = (skill: string) => {
         const newSkills = skillsArr.filter((s: string) => s !== skill);
-        updateProfile({ skills: newSkills.join(",") });
+        const updateField = profile?.user_type === "job_seeker" ? "skills_expertise" : "required_skills";
+        updateProfile({ [updateField]: newSkills.join(",") });
     };
 
     // Contact logic
@@ -109,7 +118,11 @@ export default function SettingsPage() {
 
     // Profile logic
     const handleProfileSave = () => {
-        updateProfile(profileForm);
+        const updates = {
+            full_name: profileForm.full_name,
+            professional_bio: profileForm.bio
+        };
+        updateProfile(updates);
         setEditProfile(false);
     };
 
@@ -275,7 +288,7 @@ export default function SettingsPage() {
                                             placeholder="Tell others about yourself"
                                         />
                                     ) : (
-                                        <p className={styles.bio}>{profile.bio}</p>
+                                        <p className={styles.bio}>{profile.professional_bio}</p>
                                     )}
                                 </div>
                                 {editProfile && (

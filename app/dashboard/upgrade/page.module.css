@@ -4,7 +4,7 @@
   background: #fecaca;
 }
 
-.dashboardLayout {
+.mainContent {
   flex: 1;
   margin-left: 280px;
   padding: 40px;
@@ -178,6 +178,10 @@
   cursor: pointer;
   transition: all 0.2s ease;
   border: none;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .primaryButton {
@@ -408,4 +412,25 @@
   .benefitItem {
     padding: 16px;
   }
+}
+
+/* Current plan styles */
+.planButton.currentPlan {
+  background: #10b981;
+  color: white;
+  cursor: default;
+}
+
+.planButton.currentPlan:hover {
+  background: #10b981;
+  transform: none;
+}
+
+.planButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.planButton:disabled:hover {
+  transform: none;
 }

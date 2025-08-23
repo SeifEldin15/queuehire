@@ -30,6 +30,9 @@ create table public.users (
     user_type text check (user_type in ('job_seeker', 'hiring')) not null default 'job_seeker',
     plan_type text check (plan_type in ('Free', 'Essential', 'Power', 'Pro')) default 'Free',
     phone text,
+    linkedin text,
+    instagram text,
+    website text,
     created_at timestamp with time zone default now(),
     updated_at timestamp with time zone default now()
 );

@@ -7,6 +7,9 @@ export interface UserProfile {
   plan_type: 'Free' | 'Essential' | 'Power' | 'Pro';
   user_type: 'job_seeker' | 'hiring';
   phone?: string;
+  linkedin?: string;
+  instagram?: string;
+  website?: string;
   full_name?: string;
   profile_image?: string;
   created_at: string;

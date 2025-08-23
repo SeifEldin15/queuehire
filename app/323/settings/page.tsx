@@ -50,7 +50,7 @@ export default function SettingsPage() {
                 return;
             }
             const { data } = await supabase
-                .from("profiles")
+                .from("users")
                 .select("*")
                 .eq("id", user.id)
                 .single();
@@ -77,7 +77,7 @@ export default function SettingsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
         const { data, error } = await supabase
-            .from("profiles")
+            .from("users")
             .update(updates)
             .eq("id", user.id)
             .single();

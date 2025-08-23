@@ -45,14 +45,16 @@ export default function DashboardPage() {
             try {
                 setLoading(true);
                 const { data: { user } } = await supabase.auth.getUser();
+                
                 if (!user) {
-                    console.log("No user found, redirecting to login");
-                    router.replace("/login");
+                    console.log("No user found, showing guest view");
+                    setProfile(null);
+                    setLoading(false);
                     return;
                 }
 
                 console.log("User authenticated in dashboard:", user.id);
-                console.log("Full user object:", user);  // Let's see the complete user object
+                console.log("Full user object:", user);
 
                 // Check for pendingProfile in localStorage
                 const pendingProfileStr = localStorage.getItem("pendingProfile");
@@ -88,7 +90,9 @@ export default function DashboardPage() {
                         
                         if (upsertError) {
                             console.error("Failed to create profile:", upsertError);
-                            router.replace("/register");
+                            // Don't redirect, just show guest view
+                            setProfile(null);
+                            setLoading(false);
                             return;
                         }
                         
@@ -103,20 +107,20 @@ export default function DashboardPage() {
                             setProfile(newProfile);
                             localStorage.removeItem("pendingProfile");
                         } else {
-                            router.replace("/register");
-                            return;
+                            // Don't redirect, just show guest view
+                            setProfile(null);
                         }
                     } else {
-                        // No profile data available
-                        router.replace("/register");
-                        return;
+                        // No profile data available, show guest view
+                        setProfile(null);
                     }
                 } else {
                     setProfile(data);
                 }
             } catch (error) {
                 console.error("Error fetching profile:", error);
-                router.replace("/login");
+                // Don't redirect on error, just show guest view
+                setProfile(null);
             } finally {
                 setLoading(false);
             }
@@ -216,12 +220,57 @@ export default function DashboardPage() {
         );
     }
 
-    // If no profile after loading, show error (this shouldn't happen due to redirects)
+    // If no profile after loading, show guest/unauthenticated view
     if (!profile) {
         return (
             <div className={styles.container}>
-                <div className={styles.errorWrapper}>
-                    <p>Unable to load profile. Please try refreshing.</p>
+                <div className={styles.header}>
+                    <div className={styles.greeting}>
+                        <h1 className={styles.welcomeText}>
+                            Welcome to QueueHire!
+                        </h1>
+                        <p className={styles.subtitle}>
+                            The fastest way to connect job seekers with recruiters
+                        </p>
+                    </div>
+                </div>
+
+                <div className={styles.guestContent}>
+                    <div className={styles.guestMessage}>
+                        <h2>Join QueueHire Today</h2>
+                        <p>Sign up or log in to access the full dashboard experience and start connecting with opportunities or candidates.</p>
+                        
+                        <div className={styles.guestActions}>
+                            <Link href="/login" className={styles.loginButton}>
+                                Log In
+                            </Link>
+                            <Link href="/register" className={styles.signupButton}>
+                                Sign Up
+                            </Link>
+                        </div>
+                    </div>
+
+                    <div className={styles.featuresPreview}>
+                        <h3>What you'll get access to:</h3>
+                        <div className={styles.featuresList}>
+                            <div className={styles.featureItem}>
+                                <Star size={20} />
+                                <span>Save favorite contacts</span>
+                            </div>
+                            <div className={styles.featureItem}>
+                                <Settings size={20} />
+                                <span>Customize your profile & skills</span>
+                            </div>
+                            <div className={styles.featureItem}>
+                                <Zap size={20} />
+                                <span>Instant matching with AI</span>
+                            </div>
+                            <div className={styles.featureItem}>
+                                <Clock size={20} />
+                                <span>Quick video interviews</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
@@ -238,6 +287,13 @@ export default function DashboardPage() {
     };
 
     const handleQueueUp = () => {
+        // Only allow queue functionality for authenticated users with profiles
+        if (!profile) {
+            // Redirect to login if not authenticated
+            router.push("/login");
+            return;
+        }
+        
         setQueueStage("searching");
         setSearchTime(0);
     };

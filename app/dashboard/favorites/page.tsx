@@ -1,232 +1,228 @@
- "use client";
-
-
-import { ExternalLink, Copy, Trash2, Lock, Search, Filter, Plus } from "lucide-react";
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/lib/useAuth';
-import { supabase } from '@/lib/supabaseClient';
-import { UserProfile } from '@/lib/types';
+import { ExternalLink, Copy, Trash2, Lock } from "lucide-react";
 import styles from "./page.module.css";
 
-interface SavedContact {
-	id: string;
-	user_id: string;
-	saved_contact_id: string;
-	created_at: string;
-	contact_profile: UserProfile;
-}
+export const metadata = {
+	title: "QueueHire - Saved Contacts",
+	description:
+		"Find a job in seconds. Recruit the right person today. All in one platform",
+};
 
 export default function FavoritesPage() {
-	const { user, profile } = useAuth();
-	const [savedContacts, setSavedContacts] = useState<SavedContact[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-	const [searchTerm, setSearchTerm] = useState('');
-	const [filterType, setFilterType] = useState<'all' | 'job_seeker' | 'hiring'>('all');
+	const savedContacts = [
+		{
+			name: "Ziad Nagy",
+			saveDate: "31/5/2025",
+			rating: 4,
+			totalRatings: 12,
+		},
+		{
+			name: "Sara Johnson",
+			saveDate: "29/5/2025",
+			rating: 5,
+			totalRatings: 8,
+		},
+		{
+			name: "Mennatallah",
+			saveDate: "11/5/2025",
+			rating: 3,
+			totalRatings: 15,
+		},
+	];
 
-	// Fetch saved contacts
-	const fetchSavedContacts = async () => {
-		if (!user) return;
-
-		try {
-			setLoading(true);
-			const { data, error } = await supabase
-				.from('saved_contacts')
-				.select(`
-					*,
-					contact_profile:saved_contact_id (
-						id,
-						email,
-						full_name,
-						user_type,
-						plan_type,
-						professional_bio,
-						skills_expertise,
-						created_at
-					)
-				`)
-				.eq('user_id', user.id)
-				.order('created_at', { ascending: false });
-
-			if (error) {
-				setError(error.message);
-			} else {
-				setSavedContacts(data || []);
-			}
-		} catch (err) {
-			setError('Failed to fetch saved contacts');
-			console.error('Error fetching saved contacts:', err);
-		} finally {
-			setLoading(false);
+	const renderStars = (rating: number, total: number) => {
+		const stars = [];
+		for (let i = 1; i <= 5; i++) {
+			stars.push(
+				<span
+					key={i}
+					className={
+						i <= rating ? styles.starFilled : styles.starEmpty
+					}
+				>
+					⭐
+				</span>
+			);
 		}
-	};
-
-	// Remove contact from favorites
-	const removeContact = async (contactId: string) => {
-		if (!confirm('Are you sure you want to remove this contact from your favorites?')) {
-			return;
-		}
-
-		try {
-			const { error } = await supabase
-				.from('saved_contacts')
-				.delete()
-				.eq('id', contactId)
-				.eq('user_id', user?.id);
-
-			if (error) {
-				alert('Failed to remove contact: ' + error.message);
-			} else {
-				setSavedContacts(prev => prev.filter(contact => contact.id !== contactId));
-			}
-		} catch (err) {
-			alert('Failed to remove contact');
-			console.error('Error removing contact:', err);
-		}
-	};
-
-	// Copy contact info to clipboard
-	const copyContactInfo = async (contact: SavedContact) => {
-		const contactInfo = `
-Name: ${contact.contact_profile.full_name || 'Not provided'}
-Email: ${contact.contact_profile.email}
-Type: ${contact.contact_profile.user_type === 'job_seeker' ? 'Job Seeker' : 'Hiring Manager'}
-Plan: ${contact.contact_profile.plan_type}
-${contact.contact_profile.professional_bio ? `Bio: ${contact.contact_profile.professional_bio}` : ''}
-${contact.contact_profile.skills_expertise ? `Skills: ${contact.contact_profile.skills_expertise}` : ''}
-		`.trim();
-
-		try {
-			await navigator.clipboard.writeText(contactInfo);
-			alert('Contact information copied to clipboard!');
-		} catch (err) {
-			console.error('Failed to copy to clipboard:', err);
-			alert('Failed to copy contact information');
-		}
-	};
-
-	// Filter contacts based on search and type
-	const filteredContacts = savedContacts.filter(contact => {
-		const matchesSearch = !searchTerm || 
-			contact.contact_profile.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			contact.contact_profile.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			contact.contact_profile.professional_bio?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			contact.contact_profile.skills_expertise?.toLowerCase().includes(searchTerm.toLowerCase());
-
-		const matchesType = filterType === 'all' || contact.contact_profile.user_type === filterType;
-
-		return matchesSearch && matchesType;
-	});
-
-	useEffect(() => {
-		fetchSavedContacts();
-	}, [user]);
-
-	if (loading) {
 		return (
-			<div className={styles.container}>
-				<div className={styles.loadingContainer}>
-					<div className={styles.spinner}></div>
-					<p>Loading your saved contacts...</p>
-				</div>
+			<div className={styles.ratingContainer}>
+				<div className={styles.stars}>{stars}</div>
+				<span className={styles.ratingCount}>({total})</span>
 			</div>
 		);
-	}
+	};
 
 	return (
 		<div className={styles.container}>
+			<h1 className={styles.pageTitle}>Saved Contacts</h1>
 
-
-			{error && (
-				<div className={styles.errorMessage}>
-					<p>Error: {error}</p>
-					<button onClick={fetchSavedContacts} className={styles.retryBtn}>
-						Retry
-					</button>
+			<div className={styles.contactsTable}>
+				<div className={styles.tableHeader}>
+					<div className={styles.headerCell}>Name</div>
+					<div className={styles.headerCell}>Save Date</div>
+					<div className={styles.headerCell}>Rating</div>
+					<div className={styles.headerCell}>Profile</div>
+					<div className={styles.headerCell}>Action</div>
 				</div>
-			)}
 
-			{filteredContacts.length === 0 ? (
-				<div className={styles.emptyState}>
-					<div className={styles.emptyIcon}>
-						<Plus size={48} />
-					</div>
-					<h2>No saved contacts {searchTerm || filterType !== 'all' ? 'match your criteria' : 'yet'}</h2>
-					<p>
-						{searchTerm || filterType !== 'all' 
-							? 'Try adjusting your search or filter criteria.'
-							: 'Start building your network by saving contacts you meet on QueueHire.'
-						}
-					</p>
-				</div>
-			) : (
-				<div className={styles.contactsTable}>
-					<div className={styles.tableHeader}>
-						<div className={styles.headerCell}>Contact</div>
-						<div className={styles.headerCell}>Type</div>
-						<div className={styles.headerCell}>Plan</div>
-						<div className={styles.headerCell}>Saved Date</div>
-						<div className={styles.headerCell}>Actions</div>
-					</div>
-
-					<div className={styles.tableBody}>
-						{filteredContacts.map((contact) => (
-							<div key={contact.id} className={styles.tableRow}>
-								<div className={styles.contactCell}>
-									<div className={styles.contactAvatar}>
-										{(contact.contact_profile.full_name || contact.contact_profile.email).charAt(0).toUpperCase()}
-									</div>
-									<div className={styles.contactInfo}>
-										<div className={styles.contactName}>
-											{contact.contact_profile.full_name || 'Name not provided'}
-										</div>
-										<div className={styles.contactEmail}>
-											{contact.contact_profile.email}
-										</div>
-										{contact.contact_profile.professional_bio && (
-											<div className={styles.contactBio}>
-												{contact.contact_profile.professional_bio.substring(0, 100)}
-												{contact.contact_profile.professional_bio.length > 100 ? '...' : ''}
-											</div>
-										)}
-									</div>
+				<div className={styles.tableBody}>
+					{savedContacts.map((contact, index) => (
+						<div key={index} className={styles.tableRow}>
+							<div className={styles.nameCell}>
+								<div className={styles.contactAvatar}>
+									{contact.name.charAt(0)}
 								</div>
-								<div className={styles.cell}>
-									<span className={`${styles.typeBadge} ${styles[contact.contact_profile.user_type]}`}>
-										{contact.contact_profile.user_type === 'job_seeker' ? 'Job Seeker' : 'Hiring Manager'}
-									</span>
-								</div>
-								<div className={styles.cell}>
-									<span className={`${styles.planBadge} ${styles[contact.contact_profile.plan_type.toLowerCase()]}`}>
-										{contact.contact_profile.plan_type}
-									</span>
-								</div>
-								<div className={styles.cell}>
-									{new Date(contact.created_at).toLocaleDateString()}
-								</div>
-								<div className={styles.cell}>
-									<div className={styles.actionButtons}>
-										<button
-											className={styles.actionBtn}
-											onClick={() => copyContactInfo(contact)}
-											title="Copy contact info"
-										>
-											<Copy size={16} />
-										</button>
-										<button
-											className={styles.actionBtn}
-											onClick={() => removeContact(contact.id)}
-											title="Remove from favorites"
-										>
-											<Trash2 size={16} />
-										</button>
-									</div>
+								<span className={styles.contactName}>
+									{contact.name}
+								</span>
+							</div>
+							<div className={styles.cell}>
+								{contact.saveDate}
+							</div>
+							<div className={styles.cell}>
+								{renderStars(
+									contact.rating,
+									contact.totalRatings
+								)}
+							</div>
+							<div className={styles.cell}>
+								<button className={styles.visitProfileBtn}>
+									Visit profile <ExternalLink size={14} />
+								</button>
+							</div>
+							<div className={styles.cell}>
+								<div className={styles.actionButtons}>
+									<button
+										className={styles.actionBtn}
+										title="Copy contact"
+									>
+										<Copy size={16} />
+									</button>
+									<button
+										className={styles.actionBtn}
+										title="Remove from favorites"
+									>
+										<Trash2 size={16} />
+									</button>
 								</div>
 							</div>
-						))}
+						</div>
+					))}
+				</div>
+			</div>
+
+			<div className={styles.limitationNotice}>
+				<div className={styles.lockIcon}>
+					<Lock size={48} />
+				</div>
+				<p className={styles.limitationText}>
+					<em>You can not save more than 3 users in this plan</em>
+				</p>
+				<button className={styles.upgradeBtn}>Upgrade?</button>
+			</div>
+
+			{/* Enhanced Features Section */}
+			<div className={styles.featuresSection}>
+				<h2 className={styles.featuresTitle}>
+					Unlock Premium Features
+				</h2>
+				<p className={styles.featuresSubtitle}>
+					Take your networking to the next level with advanced tools
+					and unlimited access
+				</p>
+
+				<div className={styles.featuresList}>
+					<div className={styles.featureItem}>
+						<div className={styles.featureIcon}>📊</div>
+						<div className={styles.featureContent}>
+							<h3>Advanced Contact Analytics</h3>
+							<p>
+								Track engagement rates, response times, and
+								success metrics for all your saved contacts
+							</p>
+							<div className={styles.featureBadge}>
+								Pro Feature
+							</div>
+						</div>
+					</div>
+
+					<div className={styles.featureItem}>
+						<div className={styles.featureIcon}>🔄</div>
+						<div className={styles.featureContent}>
+							<h3>Unlimited Contact Storage</h3>
+							<p>
+								Save as many contacts as you need without any
+								restrictions or limitations
+							</p>
+							<div className={styles.featureBadge}>
+								Essential+
+							</div>
+						</div>
+					</div>
+
+					<div className={styles.featureItem}>
+						<div className={styles.featureIcon}>🏷️</div>
+						<div className={styles.featureContent}>
+							<h3>Smart Contact Organization</h3>
+							<p>
+								Create custom tags, categories, and smart
+								folders to organize your network efficiently
+							</p>
+							<div className={styles.featureBadge}>
+								Pro Feature
+							</div>
+						</div>
+					</div>
+
+					<div className={styles.featureItem}>
+						<div className={styles.featureIcon}>🔔</div>
+						<div className={styles.featureContent}>
+							<h3>Smart Notifications</h3>
+							<p>
+								Get notified when your saved contacts are active
+								or when new opportunities arise
+							</p>
+							<div className={styles.featureBadge}>Premium</div>
+						</div>
+					</div>
+
+					<div className={styles.featureItem}>
+						<div className={styles.featureIcon}>📱</div>
+						<div className={styles.featureContent}>
+							<h3>Contact Export & Sync</h3>
+							<p>
+								Export your contacts to CSV or sync with your
+								favorite CRM and productivity tools
+							</p>
+							<div className={styles.featureBadge}>
+								Pro Feature
+							</div>
+						</div>
+					</div>
+
+					<div className={styles.featureItem}>
+						<div className={styles.featureIcon}>🎯</div>
+						<div className={styles.featureContent}>
+							<h3>Priority Matching</h3>
+							<p>
+								{`Get matched with your saved contacts first when
+								they're looking for opportunities`}
+							</p>
+							<div className={styles.featureBadge}>Premium</div>
+						</div>
 					</div>
 				</div>
-			)}
+
+				<div className={styles.upgradeCallout}>
+					<h3>Ready to unlock these features?</h3>
+					<p>
+						{`Choose the plan that's right for you and start building
+						better connections today`}
+					</p>
+					<button className={styles.upgradeBtn}>
+						View Pricing Plans
+					</button>
+				</div>
+			</div>
 		</div>
 	);
 }

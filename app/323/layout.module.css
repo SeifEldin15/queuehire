@@ -49,3 +49,36 @@
     }
   }
   
+/* Guest Layout for unauthenticated users */
+.guestLayout {
+  display: flex;
+  min-height: 100vh;
+  background: #f8fafc;
+}
+
+.guestMainContent {
+  flex: 1;
+  padding: 40px;
+  background: #f8fafc;
+  min-width: 0;
+}
+
+/* Responsive Design for Guest Layout */
+@media (max-width: 768px) {
+  .guestMainContent {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .guestMainContent {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 360px) {
+  .guestMainContent {
+    padding: 12px;
+  }
+}
+  

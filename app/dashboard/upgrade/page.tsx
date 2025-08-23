@@ -1,53 +1,139 @@
+"use client";
 import { Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { DatabaseService } from "@/lib/database";
+import { UserProfile } from "@/lib/types";
 import styles from "./page.module.css";
 
-export const metadata = {
-	title: "QueueHire - Upgrade",
-	description:
-		"Find a job in seconds. Recruit the right person today. All in one platform",
-};
-
 export default function UpgradePage() {
+	const [profile, setProfile] = useState<UserProfile | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [upgrading, setUpgrading] = useState<string | null>(null);
+	const router = useRouter();
+
+	// Fetch user profile on mount
+	useEffect(() => {
+		const fetchProfile = async () => {
+			try {
+				const { data: { user } } = await supabase.auth.getUser();
+				if (!user) {
+					router.replace("/login");
+					return;
+				}
+
+				const profileData = await DatabaseService.getUserProfile(user.id);
+				if (profileData) {
+					setProfile(profileData);
+				}
+			} catch (error) {
+				console.error("Error fetching profile:", error);
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		fetchProfile();
+	}, [router]);
+
+	const handleUpgrade = async (planType: 'Free' | 'Essential' | 'Power' | 'Pro') => {
+		if (!profile) {
+			console.log("No profile found");
+			return;
+		}
+
+		console.log("Starting upgrade to:", planType);
+		console.log("Current profile:", profile);
+		setUpgrading(planType);
+		
+		try {
+			// Try direct Supabase update first
+			console.log("Attempting direct Supabase update...");
+			const { data: directUpdateData, error: directUpdateError } = await supabase
+				.from('users')
+				.update({ plan_type: planType })
+				.eq('id', profile.id)
+				.select()
+				.single();
+
+			console.log("Direct update result:", { directUpdateData, directUpdateError });
+
+			if (directUpdateError) {
+				console.error("Direct update failed:", directUpdateError);
+				alert(`Update failed: ${directUpdateError.message}`);
+				return;
+			}
+
+			if (directUpdateData) {
+				setProfile(directUpdateData);
+				const action = planType === 'Free' ? 'downgraded to' : 'upgraded to';
+				alert(`Successfully ${action} ${planType} plan!`);
+			} else {
+				console.log("No data returned from direct update");
+				alert("Failed to update plan. Please try again.");
+			}
+		} catch (error) {
+			console.error("Error updating plan:", error);
+			alert("Failed to update plan. Please try again.");
+		} finally {
+			console.log("Finishing upgrade process");
+			setUpgrading(null);
+		}
+	};
+
+	if (loading) {
+		return (
+			<div className={styles.container}>
+				<div style={{ textAlign: 'center', padding: '2rem' }}>
+					Loading your profile...
+				</div>
+			</div>
+		);
+	}
 	const plans = [
 		{
-			name: "Essential Plan",
+			name: "Essential",
 			price: 15,
 			features: [
 				{ name: "60 minutes of calls daily", included: true },
-				{ name: "Second insane perk", included: false },
-				{ name: "Third crazy perk", included: false },
-				{ name: "Fourth fantastic perk", included: false },
-				{ name: "Fifth amazing perk", included: false },
+				{ name: "Basic matching algorithm", included: true },
+				{ name: "Email support", included: true },
+				{ name: "Profile analytics", included: false },
+				{ name: "Priority matching", included: false },
 			],
 			buttonText: "Choose Plan",
-			buttonStyle: "secondary",
+			buttonStyle: "secondary" as const,
+			planType: "Essential" as const,
 		},
 		{
-			name: "Power Plan",
+			name: "Power",
 			price: 29,
 			features: [
 				{ name: "180 minutes of calls daily", included: true },
-				{ name: "Second insane perk", included: true },
-				{ name: "Third crazy perk", included: true },
-				{ name: "Fourth fantastic perk", included: true },
-				{ name: "Fifth amazing perk", included: true },
+				{ name: "Advanced matching algorithm", included: true },
+				{ name: "Priority support", included: true },
+				{ name: "Profile analytics", included: true },
+				{ name: "Priority matching", included: true },
 			],
 			buttonText: "Choose Plan",
-			buttonStyle: "primary",
+			buttonStyle: "primary" as const,
 			recommended: true,
+			planType: "Power" as const,
 		},
 		{
-			name: "Pro Plan",
+			name: "Pro",
 			price: 69,
 			features: [
 				{ name: "Unlimited minutes", included: true },
-				{ name: "Second insane perk", included: false },
-				{ name: "Third crazy perk", included: false },
-				{ name: "Fourth fantastic perk", included: false },
-				{ name: "Fifth amazing perk", included: false },
+				{ name: "AI-powered matching", included: true },
+				{ name: "24/7 premium support", included: true },
+				{ name: "Advanced analytics", included: true },
+				{ name: "Dedicated success manager", included: true },
 			],
 			buttonText: "Choose Plan",
-			buttonStyle: "secondary",
+			buttonStyle: "secondary" as const,
+			planType: "Pro" as const,
 		},
 	];
 
@@ -117,9 +203,21 @@ export default function UpgradePage() {
 								plan.buttonStyle === "primary"
 									? styles.primaryButton
 									: styles.secondaryButton
+							} ${
+								profile?.plan_type === plan.planType ? styles.currentPlan : ""
 							}`}
+							onClick={() => handleUpgrade(plan.planType)}
+							disabled={
+								upgrading === plan.planType || 
+								profile?.plan_type === plan.planType
+							}
 						>
-							{plan.buttonText}
+							{upgrading === plan.planType 
+								? "Upgrading..." 
+								: profile?.plan_type === plan.planType 
+								? "Current Plan"
+								: plan.buttonText
+							}
 						</button>
 					</div>
 				))}
@@ -128,11 +226,16 @@ export default function UpgradePage() {
 			<div className={styles.currentPlanInfo}>
 				<div className={styles.currentPlan}>
 					<span className={styles.label}>Current Plan:</span>
-					<span className={styles.value}>Free</span>
+					<span className={styles.value}>{profile?.plan_type || "Free"}</span>
 				</div>
 				<div className={styles.renewalDate}>
-					<span className={styles.label}>Date of Renewal:</span>
-					<span className={styles.value}>31st June 2025</span>
+					<span className={styles.label}>Member Since:</span>
+					<span className={styles.value}>
+						{profile?.created_at 
+							? new Date(profile.created_at).toLocaleDateString()
+							: "N/A"
+						}
+					</span>
 				</div>
 			</div>
 
