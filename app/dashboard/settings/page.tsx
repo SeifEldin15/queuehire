@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { DatabaseService } from "@/lib/database";
+import { getMockUserRatingStats } from "@/lib/mockReviewsData";
 import { useRouter } from "next/navigation";
 import {
     Edit3,
@@ -58,9 +59,10 @@ export default function SettingsPage() {
                 .single();
             setProfile(data);
             
-            // Fetch rating stats
+            // Fetch rating stats (using mock data for now)
             try {
-                const stats = await DatabaseService.getUserRatingStats(user.id);
+                // const stats = await DatabaseService.getUserRatingStats(user.id);
+                const stats = await getMockUserRatingStats(user.id);
                 setRatingStats(stats);
             } catch (error) {
                 console.error('Error fetching rating stats:', error);
