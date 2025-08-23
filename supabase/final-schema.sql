@@ -46,9 +46,23 @@ create table public.saved_contacts (
     unique (user_id, saved_contact_id) -- prevent duplicates
 );
 
+-- REVIEWS TABLE (for user ratings and reviews)
+create table public.reviews (
+    id uuid primary key default gen_random_uuid(),
+    reviewer_id uuid not null references public.users(id) on delete cascade,
+    reviewed_user_id uuid not null references public.users(id) on delete cascade,
+    rating integer not null check (rating >= 1 and rating <= 5),
+    review_text text,
+    meeting_context text,
+    created_at timestamp with time zone default now(),
+    updated_at timestamp with time zone default now(),
+    unique (reviewer_id, reviewed_user_id) -- prevent duplicate reviews
+);
+
 -- Enable Row Level Security (RLS)
 alter table public.users enable row level security;
 alter table public.saved_contacts enable row level security;
+alter table public.reviews enable row level security;
 
 -- RLS POLICIES FOR USERS TABLE
 
@@ -77,6 +91,24 @@ create policy "Users can view own saved contacts" on public.saved_contacts
 -- Users can manage (insert/update/delete) their own saved contacts
 create policy "Users can manage own saved contacts" on public.saved_contacts
     for all using (auth.uid() = user_id);
+
+-- RLS POLICIES FOR REVIEWS TABLE
+
+-- Anyone can view reviews (public ratings)
+create policy "Anyone can view reviews" on public.reviews
+    for select using (true);
+
+-- Users can only create reviews if they are the reviewer
+create policy "Users can create own reviews" on public.reviews
+    for insert with check (auth.uid() = reviewer_id);
+
+-- Users can only update their own reviews
+create policy "Users can update own reviews" on public.reviews
+    for update using (auth.uid() = reviewer_id);
+
+-- Users can delete their own reviews
+create policy "Users can delete own reviews" on public.reviews
+    for delete using (auth.uid() = reviewer_id);
 
 -- FUNCTIONS AND TRIGGERS
 
@@ -164,6 +196,29 @@ create index if not exists idx_users_email on public.users(email);
 -- Index for saved contacts lookups
 create index if not exists idx_saved_contacts_user_id on public.saved_contacts(user_id);
 create index if not exists idx_saved_contacts_saved_contact_id on public.saved_contacts(saved_contact_id);
+
+-- Indexes for reviews
+create index if not exists idx_reviews_reviewed_user_id on public.reviews(reviewed_user_id);
+create index if not exists idx_reviews_reviewer_id on public.reviews(reviewer_id);
+create index if not exists idx_reviews_rating on public.reviews(rating);
+create index if not exists idx_reviews_created_at on public.reviews(created_at);
+
+-- CREATE VIEW FOR USER RATING STATS
+create or replace view public.user_rating_stats as
+select 
+    u.id as user_id,
+    u.email,
+    u.full_name,
+    coalesce(round(avg(r.rating), 1), 0) as average_rating,
+    coalesce(count(r.id), 0) as total_reviews,
+    coalesce(count(r.id) filter (where r.rating = 5), 0) as five_star_count,
+    coalesce(count(r.id) filter (where r.rating = 4), 0) as four_star_count,
+    coalesce(count(r.id) filter (where r.rating = 3), 0) as three_star_count,
+    coalesce(count(r.id) filter (where r.rating = 2), 0) as two_star_count,
+    coalesce(count(r.id) filter (where r.rating = 1), 0) as one_star_count
+from public.users u
+left join public.reviews r on u.id = r.reviewed_user_id
+group by u.id, u.email, u.full_name;
 
 -- SAMPLE DATA (optional - remove if not needed)
 

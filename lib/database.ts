@@ -71,7 +71,7 @@ export class DatabaseService {
   }
 
   // Saved contacts operations
-  static async getSavedContacts(userId: string): Promise<SavedContact[]> {
+  static async getSavedContacts(userId: string): Promise<any[]> {
     try {
       const { data, error } = await supabase
         .from('saved_contacts')
@@ -85,10 +85,18 @@ export class DatabaseService {
             skills_expertise,
             required_skills,
             user_type,
-            profile_image
+            profile_image,
+            plan_type,
+            phone,
+            linkedin,
+            instagram,
+            website,
+            created_at,
+            updated_at
           )
         `)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching saved contacts:', error);
@@ -121,15 +129,47 @@ export class DatabaseService {
     }
   }
 
-  static async addSavedContact(userId: string, contactId: string): Promise<SavedContact | null> {
+  static async addSavedContact(userId: string, contactId: string): Promise<any | null> {
     try {
+      // Check if contact already exists
+      const { data: existing } = await supabase
+        .from('saved_contacts')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('saved_contact_id', contactId)
+        .single();
+
+      if (existing) {
+        console.log('Contact already saved');
+        return { error: 'Contact already saved' };
+      }
+
       const { data, error } = await supabase
         .from('saved_contacts')
         .insert({
           user_id: userId,
           saved_contact_id: contactId
         })
-        .select()
+        .select(`
+          *,
+          saved_contact:saved_contact_id (
+            id,
+            full_name,
+            email,
+            professional_bio,
+            skills_expertise,
+            required_skills,
+            user_type,
+            profile_image,
+            plan_type,
+            phone,
+            linkedin,
+            instagram,
+            website,
+            created_at,
+            updated_at
+          )
+        `)
         .single();
 
       if (error) {
@@ -197,6 +237,59 @@ export class DatabaseService {
     } catch (error) {
       console.error('Error searching users:', error);
       return [];
+    }
+  }
+
+  // Review-related functions
+  static async getUserRatingStats(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('user_rating_stats')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching user rating stats:', error);
+        throw error;
+      }
+
+      return data || {
+        user_id: userId,
+        average_rating: 0,
+        total_reviews: 0,
+        five_star_count: 0,
+        four_star_count: 0,
+        three_star_count: 0,
+        two_star_count: 0,
+        one_star_count: 0
+      };
+    } catch (error) {
+      console.error('Error fetching user rating stats:', error);
+      throw error;
+    }
+  }
+
+  static async getUserReviews(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select(`
+          *,
+          reviewer:reviewer_id(id, full_name, email)
+        `)
+        .eq('reviewed_user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching user reviews:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching user reviews:', error);
+      throw error;
     }
   }
 }

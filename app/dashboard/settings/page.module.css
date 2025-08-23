@@ -195,6 +195,10 @@
   color: #fbbf24;
 }
 
+.starEmpty {
+  color: #d1d5db;
+}
+
 .ratingCount {
   font-size: 14px;
   color: #6b7280;

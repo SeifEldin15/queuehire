@@ -1,124 +1,222 @@
-import { ExternalLink, Copy, Trash2, Lock } from "lucide-react";
+"use client";
+import { ExternalLink, Copy, Trash2, Lock, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { DatabaseService } from "@/lib/database";
+import { UserProfile } from "@/lib/types";
 import styles from "./page.module.css";
 
-export const metadata = {
-	title: "QueueHire - Saved Contacts",
-	description:
-		"Find a job in seconds. Recruit the right person today. All in one platform",
-};
+interface SavedContactWithProfile {
+  id: string;
+  user_id: string;
+  saved_contact_id: string;
+  created_at: string;
+  saved_contact: UserProfile;
+}
 
 export default function FavoritesPage() {
-	const savedContacts = [
-		{
-			name: "Ziad Nagy",
-			saveDate: "31/5/2025",
-			rating: 4,
-			totalRatings: 12,
-		},
-		{
-			name: "Sara Johnson",
-			saveDate: "29/5/2025",
-			rating: 5,
-			totalRatings: 8,
-		},
-		{
-			name: "Mennatallah",
-			saveDate: "11/5/2025",
-			rating: 3,
-			totalRatings: 15,
-		},
-	];
+	const [savedContacts, setSavedContacts] = useState<SavedContactWithProfile[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+	const [removingContact, setRemovingContact] = useState<string | null>(null);
+	const router = useRouter();
 
-	const renderStars = (rating: number, total: number) => {
-		const stars = [];
-		for (let i = 1; i <= 5; i++) {
-			stars.push(
-				<span
-					key={i}
-					className={
-						i <= rating ? styles.starFilled : styles.starEmpty
-					}
-				>
-					⭐
-				</span>
-			);
+	// Fetch saved contacts and current user
+	useEffect(() => {
+		const fetchData = async () => {
+			try {
+				const { data: { user } } = await supabase.auth.getUser();
+				if (!user) {
+					router.replace("/login");
+					return;
+				}
+
+				// Get current user profile
+				const userProfile = await DatabaseService.getUserProfile(user.id);
+				setCurrentUser(userProfile);
+
+				// Get saved contacts
+				const contacts = await DatabaseService.getSavedContacts(user.id);
+				setSavedContacts(contacts);
+			} catch (error) {
+				console.error("Error fetching data:", error);
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		fetchData();
+	}, [router]);
+
+	const handleRemoveContact = async (contactId: string) => {
+		if (!currentUser) return;
+
+		setRemovingContact(contactId);
+		try {
+			const success = await DatabaseService.removeSavedContact(currentUser.id, contactId);
+			if (success) {
+				setSavedContacts(prev => prev.filter(contact => contact.saved_contact_id !== contactId));
+			} else {
+				alert("Failed to remove contact. Please try again.");
+			}
+		} catch (error) {
+			console.error("Error removing contact:", error);
+			alert("Failed to remove contact. Please try again.");
+		} finally {
+			setRemovingContact(null);
 		}
+	};
+
+	const handleCopyContact = async (contact: UserProfile) => {
+		const contactInfo = `${contact.full_name || 'Unknown'}\nEmail: ${contact.email}\nType: ${contact.user_type}`;
+		try {
+			await navigator.clipboard.writeText(contactInfo);
+			alert("Contact information copied to clipboard!");
+		} catch (error) {
+			console.error("Failed to copy:", error);
+			alert("Failed to copy contact information.");
+		}
+	};
+
+	const getPlanLimit = (planType: string) => {
+		switch (planType) {
+			case 'Free':
+				return 3;
+			case 'Essential':
+				return 10;
+			case 'Power':
+			case 'Pro':
+				return Infinity;
+			default:
+				return 3;
+		}
+	};
+
+	const canSaveMore = () => {
+		if (!currentUser) return false;
+		const limit = getPlanLimit(currentUser.plan_type);
+		return savedContacts.length < limit;
+	};
+
+	const renderStars = (userType: string) => {
+		// For now, we'll show a simple user type indicator instead of ratings
+		// You can implement a rating system later if needed
 		return (
 			<div className={styles.ratingContainer}>
-				<div className={styles.stars}>{stars}</div>
-				<span className={styles.ratingCount}>({total})</span>
+				<span className={styles.userType}>
+					{userType === 'job_seeker' ? '👤 Job Seeker' : '🏢 Hiring Manager'}
+				</span>
 			</div>
 		);
 	};
+
+	if (loading) {
+		return (
+			<div className={styles.container}>
+				<h1 className={styles.pageTitle}>Saved Contacts</h1>
+				<div className={styles.loadingContainer}>
+					<RefreshCw className={styles.loadingIcon} size={32} />
+					<p>Loading your saved contacts...</p>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className={styles.container}>
 			<h1 className={styles.pageTitle}>Saved Contacts</h1>
 
-			<div className={styles.contactsTable}>
-				<div className={styles.tableHeader}>
-					<div className={styles.headerCell}>Name</div>
-					<div className={styles.headerCell}>Save Date</div>
-					<div className={styles.headerCell}>Rating</div>
-					<div className={styles.headerCell}>Profile</div>
-					<div className={styles.headerCell}>Action</div>
+			{savedContacts.length === 0 ? (
+				<div className={styles.emptyState}>
+					<div className={styles.emptyIcon}>📋</div>
+					<h3>No saved contacts yet</h3>
+					<p>Start networking and save contacts you'd like to connect with later!</p>
 				</div>
+			) : (
+				<div className={styles.contactsTable}>
+					<div className={styles.tableHeader}>
+						<div className={styles.headerCell}>Name</div>
+						<div className={styles.headerCell}>Save Date</div>
+						<div className={styles.headerCell}>Type</div>
+						<div className={styles.headerCell}>Profile</div>
+						<div className={styles.headerCell}>Action</div>
+					</div>
 
-				<div className={styles.tableBody}>
-					{savedContacts.map((contact, index) => (
-						<div key={index} className={styles.tableRow}>
-							<div className={styles.nameCell}>
-								<div className={styles.contactAvatar}>
-									{contact.name.charAt(0)}
+					<div className={styles.tableBody}>
+						{savedContacts.map((contact, index) => (
+							<div key={contact.id} className={styles.tableRow}>
+								<div className={styles.nameCell}>
+									<div className={styles.contactAvatar}>
+										{contact.saved_contact?.full_name?.charAt(0) || contact.saved_contact?.email?.charAt(0) || '?'}
+									</div>
+									<div className={styles.contactInfo}>
+										<span className={styles.contactName}>
+											{contact.saved_contact?.full_name || 'Unknown User'}
+										</span>
+										<span className={styles.contactEmail}>
+											{contact.saved_contact?.email || 'No email'}
+										</span>
+									</div>
 								</div>
-								<span className={styles.contactName}>
-									{contact.name}
-								</span>
-							</div>
-							<div className={styles.cell}>
-								{contact.saveDate}
-							</div>
-							<div className={styles.cell}>
-								{renderStars(
-									contact.rating,
-									contact.totalRatings
-								)}
-							</div>
-							<div className={styles.cell}>
-								<button className={styles.visitProfileBtn}>
-									Visit profile <ExternalLink size={14} />
-								</button>
-							</div>
-							<div className={styles.cell}>
-								<div className={styles.actionButtons}>
-									<button
-										className={styles.actionBtn}
-										title="Copy contact"
-									>
-										<Copy size={16} />
-									</button>
-									<button
-										className={styles.actionBtn}
-										title="Remove from favorites"
-									>
-										<Trash2 size={16} />
+								<div className={styles.cell}>
+									{new Date(contact.created_at).toLocaleDateString()}
+								</div>
+								<div className={styles.cell}>
+									{renderStars(contact.saved_contact?.user_type || 'job_seeker')}
+								</div>
+								<div className={styles.cell}>
+									<button className={styles.visitProfileBtn}>
+										View Profile <ExternalLink size={14} />
 									</button>
 								</div>
+								<div className={styles.cell}>
+									<div className={styles.actionButtons}>
+										<button
+											className={styles.actionBtn}
+											title="Copy contact"
+											onClick={() => handleCopyContact(contact.saved_contact)}
+										>
+											<Copy size={16} />
+										</button>
+										<button
+											className={`${styles.actionBtn} ${styles.deleteBtn}`}
+											title="Remove from favorites"
+											onClick={() => handleRemoveContact(contact.saved_contact_id)}
+											disabled={removingContact === contact.saved_contact_id}
+										>
+											{removingContact === contact.saved_contact_id ? (
+												<RefreshCw size={16} className={styles.loadingIcon} />
+											) : (
+												<Trash2 size={16} />
+											)}
+										</button>
+									</div>
+								</div>
 							</div>
-						</div>
-					))}
+						))}
+					</div>
 				</div>
-			</div>
+			)}
 
-			<div className={styles.limitationNotice}>
-				<div className={styles.lockIcon}>
-					<Lock size={48} />
+			{!canSaveMore() && (
+				<div className={styles.limitationNotice}>
+					<div className={styles.lockIcon}>
+						<Lock size={48} />
+					</div>
+					<p className={styles.limitationText}>
+						<em>
+							You have reached the limit of {getPlanLimit(currentUser?.plan_type || 'Free')} saved contacts for your {currentUser?.plan_type || 'Free'} plan
+						</em>
+					</p>
+					<button 
+						className={styles.upgradeBtn}
+						onClick={() => router.push('/dashboard/upgrade')}
+					>
+						Upgrade?
+					</button>
 				</div>
-				<p className={styles.limitationText}>
-					<em>You can not save more than 3 users in this plan</em>
-				</p>
-				<button className={styles.upgradeBtn}>Upgrade?</button>
-			</div>
+			)}
 
 			{/* Enhanced Features Section */}
 			<div className={styles.featuresSection}>
@@ -218,7 +316,10 @@ export default function FavoritesPage() {
 						{`Choose the plan that's right for you and start building
 						better connections today`}
 					</p>
-					<button className={styles.upgradeBtn}>
+					<button 
+						className={styles.upgradeBtn}
+						onClick={() => router.push('/dashboard/upgrade')}
+					>
 						View Pricing Plans
 					</button>
 				</div>

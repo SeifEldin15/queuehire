@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { DatabaseService } from "@/lib/database";
 import { useRouter } from "next/navigation";
 import {
     Edit3,
@@ -39,6 +40,7 @@ export default function SettingsPage() {
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
+    const [ratingStats, setRatingStats] = useState<any>(null);
     const router = useRouter();
 
     // Fetch profile on mount
@@ -55,6 +57,19 @@ export default function SettingsPage() {
                 .eq("id", user.id)
                 .single();
             setProfile(data);
+            
+            // Fetch rating stats
+            try {
+                const stats = await DatabaseService.getUserRatingStats(user.id);
+                setRatingStats(stats);
+            } catch (error) {
+                console.error('Error fetching rating stats:', error);
+                setRatingStats({
+                    average_rating: 0,
+                    total_reviews: 0
+                });
+            }
+            
             // Set skills based on user type
             const skillsValue = data?.user_type === "job_seeker" 
                 ? data?.skills_expertise || ""
@@ -271,11 +286,19 @@ export default function SettingsPage() {
                                     <div className={styles.rating}>
                                         <div className={styles.stars}>
                                             {[1, 2, 3, 4, 5].map((star) => (
-                                                <Star key={star} size={16} className={styles.starFilled} />
+                                                <Star 
+                                                    key={star} 
+                                                    size={16} 
+                                                    className={
+                                                        star <= (ratingStats?.average_rating || 0) 
+                                                            ? styles.starFilled 
+                                                            : styles.starEmpty
+                                                    } 
+                                                />
                                             ))}
                                         </div>
                                         <span className={styles.ratingCount}>
-                                            (12 reviews)
+                                            ({ratingStats?.total_reviews || 0} reviews)
                                         </span>
                                     </div>
                                 </div>
