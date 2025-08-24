@@ -10,7 +10,7 @@ interface AuthContextType {
   session: Session | null;
   profile: UserProfile | null;
   loading: boolean;
-  signUp: (email: string, password: string, metadata?: Record<string, unknown>) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string, metadata?: Record<string, unknown>) => Promise<{ data?: any; error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: unknown }>;
@@ -215,10 +215,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } : null
       });
       
-      return { error };
+      return { data, error };
     } catch (error) {
       console.error('💥 Signup error:', error);
-      return { error: error as AuthError };
+      return { data: null, error: error as AuthError };
     }
   };
 

@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { X, User, Target, FileText, Camera } from "lucide-react";
 import styles from "./page.module.css";
 import { supabase } from "@/lib/supabaseClient";
+import { DatabaseService } from "@/lib/database";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/useAuth";
 
@@ -195,30 +196,33 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 				// Redirect to dashboard
 				router.push('/dashboard');
 			} else {
-				// User not authenticated, continue with registration flow
-				console.log('User not authenticated, continuing registration flow...');
+				// User not authenticated, save to temporary profile and continue registration
+				console.log('User not authenticated, saving to temporary profile...');
 				
-				const profileData = {
-					fullName: formData.fullName.trim(),
-					skills_needed: formData.skills_needed.trim(),
-					bio: formData.bio.trim(),
-					profile_image: profileImage || "",
-					role: "hiring",
-				};
-				
-				localStorage.setItem("pendingProfile", JSON.stringify(profileData));
-				console.log('Recruiter profile data saved to localStorage:', profileData);
-				
-				// Create URL with query parameters for the confirm page
-				const params = new URLSearchParams({
-					fullName: formData.fullName.trim(),
-					skills_needed: formData.skills_needed.trim(),
-					bio: formData.bio.trim(),
-					profile_image: profileImage || "",
-					role: "hiring"
-				});
-				
-				router.push(`/register/confirm?${params.toString()}`);
+				try {
+					const tempProfileData = {
+						full_name: formData.fullName.trim(),
+						user_type: 'hiring' as const,
+						required_skills: formData.skills_needed.trim() || undefined,
+						professional_bio: formData.bio.trim() || undefined,
+						profile_image: profileImage || undefined,
+					};
+
+					console.log('Creating temporary profile with data:', tempProfileData);
+					const tempProfile = await DatabaseService.createTempProfile(tempProfileData);
+					console.log('Temporary profile created:', tempProfile);
+
+					// Store temp profile ID for the next step
+					localStorage.setItem('tempProfileId', tempProfile.id);
+					
+					// Navigate to confirm page with temp profile ID
+					router.push(`/register/confirm?tempProfileId=${tempProfile.id}`);
+					
+				} catch (error) {
+					console.error('Error creating temporary profile:', error);
+					setErrors(prev => ({...prev, form: "Failed to save profile data. Please try again."}));
+					return;
+				}
 			}
 		} catch (err) {
 			console.error('Form submission error:', err);

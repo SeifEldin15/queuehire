@@ -292,4 +292,106 @@ export class DatabaseService {
       throw error;
     }
   }
+
+  // Temporary Profile functions for registration flow
+  static async createTempProfile(profileData: {
+    full_name?: string;
+    user_type: 'job_seeker' | 'hiring';
+    skills_expertise?: string;
+    required_skills?: string;
+    professional_bio?: string;
+    profile_image?: string;
+    phone?: string;
+    linkedin?: string;
+    instagram?: string;
+    website?: string;
+  }) {
+    try {
+      const { data, error } = await supabase
+        .from('temp_profiles')
+        .insert([profileData])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating temp profile:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error creating temp profile:', error);
+      throw error;
+    }
+  }
+
+  static async getTempProfile(tempProfileId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('temp_profiles')
+        .select('*')
+        .eq('id', tempProfileId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching temp profile:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching temp profile:', error);
+      throw error;
+    }
+  }
+
+  static async updateTempProfile(tempProfileId: string, updates: {
+    full_name?: string;
+    skills_expertise?: string;
+    required_skills?: string;
+    professional_bio?: string;
+    profile_image?: string;
+    phone?: string;
+    linkedin?: string;
+    instagram?: string;
+    website?: string;
+  }) {
+    try {
+      const { data, error } = await supabase
+        .from('temp_profiles')
+        .update(updates)
+        .eq('id', tempProfileId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating temp profile:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error updating temp profile:', error);
+      throw error;
+    }
+  }
+
+  static async transferTempProfileToUser(tempProfileId: string, userId: string) {
+    try {
+      const { error } = await supabase.rpc('transfer_temp_profile_to_user', {
+        temp_profile_id: tempProfileId,
+        user_id: userId
+      });
+
+      if (error) {
+        console.error('Error transferring temp profile:', error);
+        throw error;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error transferring temp profile:', error);
+      throw error;
+    }
+  }
 }

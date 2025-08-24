@@ -6,7 +6,8 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/useAuth";
 import { supabase } from "@/lib/supabaseClient";
-import { PendingProfile } from "@/lib/types";
+import { DatabaseService } from "@/lib/database";
+import { PendingProfile, TempProfile } from "@/lib/types";
 import { validatePassword, validateEmail, sanitizeInput, PasswordValidation } from "@/lib/validation";
 
 export default function FinalRegistrationPage() {
@@ -17,18 +18,41 @@ export default function FinalRegistrationPage() {
     const [loading, setLoading] = useState(false);
     const [showVerificationMessage, setShowVerificationMessage] = useState(false);
     const [passwordValidation, setPasswordValidation] = useState<PasswordValidation | null>(null);
+    const [tempProfile, setTempProfile] = useState<TempProfile | null>(null);
     
     const searchParams = useSearchParams();
     const router = useRouter();
     const { signUp } = useAuth();
 
-    // Extract profile data from query params
+    // Check for temp profile ID from new flow
+    const tempProfileId = searchParams.get("tempProfileId");
+    
+    // Extract profile data from query params (old method)
     const fullName = searchParams.get("fullName") || "";
     const skills = searchParams.get("skills") || "";
     const skills_needed = searchParams.get("skills_needed") || "";
     const bio = searchParams.get("bio") || "";
     const profile_image = searchParams.get("profile_image") || "";
     const role = searchParams.get("role") || "job_seeker";
+
+    // Load temporary profile if ID is provided
+    useEffect(() => {
+        const loadTempProfile = async () => {
+            if (tempProfileId) {
+                try {
+                    console.log('Loading temporary profile with ID:', tempProfileId);
+                    const tempProfileData = await DatabaseService.getTempProfile(tempProfileId);
+                    setTempProfile(tempProfileData);
+                    console.log('Temporary profile loaded:', tempProfileData);
+                } catch (error) {
+                    console.error('Error loading temporary profile:', error);
+                    // Don't block the flow, just log the error
+                }
+            }
+        };
+
+        loadTempProfile();
+    }, [tempProfileId]);
 
     // Real-time password validation
     useEffect(() => {
@@ -61,8 +85,17 @@ export default function FinalRegistrationPage() {
             return;
         }
 
-        // Validate that we have profile data
-        if (!fullName.trim()) {
+        // Validate that we have profile data (from temp profile or URL params)
+        const profileData = tempProfile || {
+            full_name: fullName.trim(),
+            user_type: role as 'job_seeker' | 'hiring',
+            skills_expertise: skills,
+            required_skills: skills_needed,
+            professional_bio: bio,
+            profile_image: profile_image
+        };
+
+        if (!profileData.full_name?.trim()) {
             setError("Profile information is missing. Please go back and complete your profile.");
             return;
         }
@@ -72,27 +105,17 @@ export default function FinalRegistrationPage() {
         try {
             // Sanitize inputs
             const sanitizedEmail = sanitizeInput(email);
-            const sanitizedFullName = sanitizeInput(fullName);
+            const sanitizedFullName = sanitizeInput(profileData.full_name);
             
-            // Save profile data to localStorage for after email verification
-            const pendingProfile: PendingProfile = {
-                fullName: sanitizedFullName,
-                role: role as 'job_seeker' | 'hiring',
-                skills: skills ? sanitizeInput(skills) : undefined,
-                skills_needed: skills_needed ? sanitizeInput(skills_needed) : undefined,
-                bio: bio ? sanitizeInput(bio) : undefined,
-                profile_image: profile_image || undefined,
-            };
-            localStorage.setItem("pendingProfile", JSON.stringify(pendingProfile));
-
+            // Determine user type and profile data
+            const userType = tempProfile?.user_type || (role as 'job_seeker' | 'hiring');
+            
             console.log('Starting registration with data:', {
                 email: sanitizedEmail,
                 fullName: sanitizedFullName,
-                role,
-                hasSkills: !!skills,
-                hasSkillsNeeded: !!skills_needed,
-                hasBio: !!bio,
-                hasImage: !!profile_image
+                userType,
+                hasTempProfile: !!tempProfile,
+                tempProfileId: tempProfileId
             });
 
             console.log('🚀 Attempting signup with:', {
@@ -103,22 +126,44 @@ export default function FinalRegistrationPage() {
                 }
             });
 
-            const { error } = await signUp(sanitizedEmail, password, {
+            const { data, error } = await signUp(sanitizedEmail, password, {
                 full_name: sanitizedFullName,
-                user_type: role,
+                user_type: userType,
             });
             
             if (error) {
                 console.error('❌ Registration error:', error);
-                console.error('Error details:', {
-                    message: error.message,
-                    status: error.status,
-                    code: error.code
-                });
                 setError(error.message);
             } else {
-                console.log('✅ Registration successful, email verification required');
-                console.log('📧 Email should be sent to:', sanitizedEmail);
+                console.log('✅ Registration successful, user created:', data);
+                
+                // If we have a temporary profile, transfer it to the permanent user profile
+                if (tempProfile && tempProfileId && data.user) {
+                    try {
+                        console.log('Transferring temporary profile to user...');
+                        await DatabaseService.transferTempProfileToUser(tempProfileId, data.user.id);
+                        console.log('✅ Temporary profile transferred successfully');
+                        
+                        // Clean up localStorage
+                        localStorage.removeItem('tempProfileId');
+                    } catch (transferError) {
+                        console.error('❌ Error transferring temporary profile:', transferError);
+                        // Don't fail the registration, just log the error
+                        // The user trigger will still create a basic profile
+                    }
+                } else {
+                    // Fallback: Save profile data to localStorage for old method
+                    const pendingProfile: PendingProfile = {
+                        fullName: sanitizedFullName,
+                        role: userType,
+                        skills: tempProfile?.skills_expertise || skills,
+                        skills_needed: tempProfile?.required_skills || skills_needed,
+                        bio: tempProfile?.professional_bio || bio,
+                        profile_image: tempProfile?.profile_image || profile_image,
+                    };
+                    localStorage.setItem("pendingProfile", JSON.stringify(pendingProfile));
+                }
+                
                 setShowVerificationMessage(true);
             }
         } catch (err) {
