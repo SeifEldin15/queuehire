@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
     Clock,
@@ -26,6 +26,14 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const [savedContactsCount, setSavedContactsCount] = useState(0);
     const router = useRouter();
+    
+    // Use refs to store timeouts so they don't get cleared by re-renders
+    const timeoutsRef = useRef<{
+        found?: NodeJS.Timeout;
+        connecting?: NodeJS.Timeout;
+        redirect?: NodeJS.Timeout;
+        interval?: NodeJS.Timeout;
+    }>({});
 
     // ✅ ALL HOOKS MUST BE DECLARED BEFORE ANY CONDITIONAL RETURNS
     
@@ -165,33 +173,48 @@ export default function DashboardPage() {
 
     // Queue timer effect
     useEffect(() => {
-        let interval: NodeJS.Timeout;
+        // Clear any existing timeouts
+        const clearAllTimeouts = () => {
+            if (timeoutsRef.current.interval) clearInterval(timeoutsRef.current.interval);
+            if (timeoutsRef.current.found) clearTimeout(timeoutsRef.current.found);
+            if (timeoutsRef.current.connecting) clearTimeout(timeoutsRef.current.connecting);
+            if (timeoutsRef.current.redirect) clearTimeout(timeoutsRef.current.redirect);
+            timeoutsRef.current = {};
+        };
 
         if (queueStage === "searching") {
-            interval = setInterval(() => {
+            // Clear any existing timeouts first
+            clearAllTimeouts();
+            
+            // Start the timer
+            timeoutsRef.current.interval = setInterval(() => {
                 setSearchTime((prev) => prev + 1);
             }, 1000);
 
-            // Simulate matchmaking stages
-            const foundTimeout = setTimeout(() => setQueueStage("found"), 8000);
-            const connectingTimeout = setTimeout(() => setQueueStage("connecting"), 10000);
-            const redirectTimeout = setTimeout(() => {
-                // Generate unique meeting ID and redirect
-                const meetingId = Math.random().toString(36).substring(2, 15);
-                router.push(`/meeting/${meetingId}`);
-            }, 12000);
-
-            // Cleanup function to clear all timeouts
-            return () => {
-                clearInterval(interval);
-                clearTimeout(foundTimeout);
-                clearTimeout(connectingTimeout);
-                clearTimeout(redirectTimeout);
-            };
+            // Set stage transitions
+            timeoutsRef.current.found = setTimeout(() => {
+                console.log("Setting stage to found");
+                setQueueStage("found");
+            }, 8000);
+            
+            timeoutsRef.current.connecting = setTimeout(() => {
+                console.log("Setting stage to connecting");
+                setQueueStage("connecting");
+            }, 8500);
+            
+            timeoutsRef.current.redirect = setTimeout(() => {
+                console.log("Redirecting to meeting");
+                router.push("/meeting/cxriq7kifsi");
+            }, 9500);
+        } else if (queueStage === "idle") {
+            clearAllTimeouts();
         }
 
         return () => {
-            if (interval) clearInterval(interval);
+            // Only clear if we're unmounting, not on stage changes
+            if (queueStage === "idle") {
+                clearAllTimeouts();
+            }
         };
     }, [queueStage, router]);
 
@@ -229,11 +252,20 @@ export default function DashboardPage() {
     };
 
     const handleQueueUp = () => {
+        console.log("Starting queue");
         setQueueStage("searching");
         setSearchTime(0);
     };
 
     const handleCancelQueue = () => {
+        console.log("Cancelling queue");
+        // Clear all timeouts when cancelling
+        if (timeoutsRef.current.interval) clearInterval(timeoutsRef.current.interval);
+        if (timeoutsRef.current.found) clearTimeout(timeoutsRef.current.found);
+        if (timeoutsRef.current.connecting) clearTimeout(timeoutsRef.current.connecting);
+        if (timeoutsRef.current.redirect) clearTimeout(timeoutsRef.current.redirect);
+        timeoutsRef.current = {};
+        
         setQueueStage("idle");
         setSearchTime(0);
     };
