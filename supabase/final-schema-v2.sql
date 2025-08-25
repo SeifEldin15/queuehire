@@ -70,17 +70,23 @@ drop function if exists public.transfer_temp_profile_to_user(uuid, uuid) cascade
 create table public.users (
     id uuid primary key references auth.users(id) on delete cascade,
     email text unique not null,
-    full_name text,
-    professional_bio text,
-    skills_expertise text, -- for job seeker
-    required_skills text,  -- for hiring person
+    full_name text constraint full_name_length check (char_length(full_name) <= 100),
+    professional_bio text constraint bio_length check (char_length(professional_bio) <= 1000),
+    skills_expertise text, -- for job seeker (comma-separated, each skill max 50 chars)
+    required_skills text,  -- for hiring person (comma-separated, each skill max 50 chars)
     profile_image text,
     user_type text check (user_type in ('job_seeker', 'hiring')) not null default 'job_seeker',
     plan_type text check (plan_type in ('Free', 'Essential', 'Power', 'Pro')) default 'Free',
-    phone text,
-    linkedin text,
-    instagram text,
-    website text,
+    phone text constraint phone_length check (char_length(phone) <= 20),
+    linkedin text constraint linkedin_length check (char_length(linkedin) <= 200),
+    instagram text constraint instagram_length check (char_length(instagram) <= 100),
+    website text constraint website_length check (char_length(website) <= 300),
+    -- Additional settings fields
+    theme text check (theme in ('light', 'dark', 'system')) default 'system',
+    language text check (language in ('English', 'Arabic', 'French')) default 'English',
+    two_factor_enabled boolean default false,
+    email_notifications boolean default true,
+    match_alerts boolean default true,
     created_at timestamp with time zone default now(),
     updated_at timestamp with time zone default now()
 );
@@ -100,8 +106,8 @@ create table public.reviews (
     reviewer_id uuid not null references public.users(id) on delete cascade,
     reviewed_user_id uuid not null references public.users(id) on delete cascade,
     rating integer not null check (rating >= 1 and rating <= 5),
-    review_text text,
-    meeting_context text,
+    review_text text constraint review_text_length check (char_length(review_text) <= 2000),
+    meeting_context text constraint meeting_context_length check (char_length(meeting_context) <= 500),
     created_at timestamp with time zone default now(),
     updated_at timestamp with time zone default now(),
     unique (reviewer_id, reviewed_user_id) -- prevent duplicate reviews
@@ -110,16 +116,16 @@ create table public.reviews (
 -- TEMPORARY PROFILES TABLE FOR REGISTRATION FLOW
 create table public.temp_profiles (
     id uuid default gen_random_uuid() primary key,
-    full_name text,
+    full_name text constraint temp_full_name_length check (char_length(full_name) <= 100),
     user_type text check (user_type in ('job_seeker', 'hiring')) not null,
-    skills_expertise text,
-    required_skills text,
-    professional_bio text,
+    skills_expertise text, -- comma-separated, each skill max 50 chars
+    required_skills text,  -- comma-separated, each skill max 50 chars
+    professional_bio text constraint temp_bio_length check (char_length(professional_bio) <= 1000),
     profile_image text,
-    phone text,
-    linkedin text,
-    instagram text,
-    website text,
+    phone text constraint temp_phone_length check (char_length(phone) <= 20),
+    linkedin text constraint temp_linkedin_length check (char_length(linkedin) <= 200),
+    instagram text constraint temp_instagram_length check (char_length(instagram) <= 100),
+    website text constraint temp_website_length check (char_length(website) <= 300),
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
     expires_at timestamp with time zone default (timezone('utc'::text, now()) + interval '24 hours') not null
 );
@@ -273,6 +279,65 @@ begin
 end;
 $$ language plpgsql security definer;
 
+-- === VALIDATION FUNCTIONS ===
+
+-- Function to validate skills format and length
+create or replace function public.validate_skills(skills_text text) 
+returns boolean as $$
+declare
+    skill_array text[];
+    skill text;
+begin
+    -- If skills_text is null or empty, it's valid
+    if skills_text is null or trim(skills_text) = '' then
+        return true;
+    end if;
+    
+    -- Split skills by comma
+    skill_array := string_to_array(skills_text, ',');
+    
+    -- Check if there are more than 8 skills
+    if array_length(skill_array, 1) > 8 then
+        return false;
+    end if;
+    
+    -- Check each skill length
+    foreach skill in array skill_array loop
+        if char_length(trim(skill)) > 50 then
+            return false;
+        end if;
+        -- Check if skill is not empty after trimming
+        if trim(skill) = '' then
+            return false;
+        end if;
+    end loop;
+    
+    return true;
+end;
+$$ language plpgsql;
+
+-- Function to validate email format
+create or replace function public.validate_email(email_text text) 
+returns boolean as $$
+begin
+    return email_text ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$';
+end;
+$$ language plpgsql;
+
+-- Function to validate URL format
+create or replace function public.validate_url(url_text text) 
+returns boolean as $$
+begin
+    -- If URL is null or empty, it's valid
+    if url_text is null or trim(url_text) = '' then
+        return true;
+    end if;
+    
+    -- Basic URL validation
+    return url_text ~* '^https?://[^\s/$.?#].[^\s]*$';
+end;
+$$ language plpgsql;
+
 -- === STORAGE SETUP FOR PROFILE IMAGES ===
 
 -- Create storage bucket for profile images (safe method)
@@ -309,6 +374,39 @@ create policy "Users can delete their own profile images" on storage.objects
         bucket_id = 'profile-images' 
         and auth.uid()::text = (storage.foldername(name))[1]
     );
+
+-- === ADDITIONAL VALIDATION CONSTRAINTS ===
+
+-- Add constraints using validation functions to existing tables
+do $$ begin
+    -- Add skills validation constraints to users table
+    if not exists (select 1 from information_schema.check_constraints where constraint_name = 'valid_skills_expertise') then
+        alter table public.users add constraint valid_skills_expertise check (validate_skills(skills_expertise));
+    end if;
+    
+    if not exists (select 1 from information_schema.check_constraints where constraint_name = 'valid_required_skills') then
+        alter table public.users add constraint valid_required_skills check (validate_skills(required_skills));
+    end if;
+    
+    if not exists (select 1 from information_schema.check_constraints where constraint_name = 'valid_website_url') then
+        alter table public.users add constraint valid_website_url check (validate_url(website));
+    end if;
+    
+    -- Add skills validation constraints to temp_profiles table
+    if not exists (select 1 from information_schema.check_constraints where constraint_name = 'temp_valid_skills_expertise') then
+        alter table public.temp_profiles add constraint temp_valid_skills_expertise check (validate_skills(skills_expertise));
+    end if;
+    
+    if not exists (select 1 from information_schema.check_constraints where constraint_name = 'temp_valid_required_skills') then
+        alter table public.temp_profiles add constraint temp_valid_required_skills check (validate_skills(required_skills));
+    end if;
+    
+    if not exists (select 1 from information_schema.check_constraints where constraint_name = 'temp_valid_website_url') then
+        alter table public.temp_profiles add constraint temp_valid_website_url check (validate_url(website));
+    end if;
+exception when others then
+    raise warning 'Some validation constraints may already exist: %', sqlerrm;
+end $$;
 
 -- === INDEXES FOR PERFORMANCE ===
 

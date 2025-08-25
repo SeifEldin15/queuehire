@@ -584,3 +584,58 @@ input:checked + .slider:before {
     height: 24px;
   }
 }
+
+/* Character count and validation styles */
+.characterCount {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.characterCountWarning {
+  color: #f59e0b;
+}
+
+.characterCountError {
+  color: #ef4444;
+}
+
+.fieldFeedback {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.savingIndicator {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.savedIndicator {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: #10b981;
+}
+
+/* Improved add skill card layout */
+.addSkillCard {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px;
+  border: 2px dashed #e5e7eb;
+  border-radius: 12px;
+  background: #f9fafb;
+}
+
+.addSkillCard .flex-1 {
+  flex: 1;
+}

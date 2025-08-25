@@ -166,7 +166,14 @@ export default function SettingsPage() {
 
     const handleAddSkill = async () => {
         if (skillsArr.length >= 8 || !skillsInput.trim()) return;
-        const newSkills = [...skillsArr, skillsInput.trim()];
+        
+        // Enforce skill character limit
+        let skillValue = skillsInput.trim();
+        if (skillValue.length > FIELD_LIMITS.skill) {
+            skillValue = skillValue.substring(0, FIELD_LIMITS.skill);
+        }
+        
+        const newSkills = [...skillsArr, skillValue];
         const updateField = profile?.user_type === "job_seeker" ? "skills_expertise" : "required_skills";
         await updateProfile({ [updateField]: newSkills.join(",") }, "skills");
         setSkillsInput("");
@@ -185,8 +192,22 @@ export default function SettingsPage() {
         setEditContact(false);
     };
 
-    // Real-time contact field updates
+    // Real-time contact field updates with character limits
     const handleContactFieldChange = async (field: string, value: string) => {
+        const limits = {
+            phone: FIELD_LIMITS.phone,
+            linkedin: FIELD_LIMITS.linkedin,
+            instagram: FIELD_LIMITS.instagram,
+            website: FIELD_LIMITS.website
+        };
+        
+        const limit = limits[field as keyof typeof limits];
+        
+        // Enforce character limit
+        if (value.length > limit) {
+            value = value.substring(0, limit);
+        }
+        
         setContactForm((prev: any) => ({ ...prev, [field]: value }));
         
         // Auto-save after user stops typing (debounced)
@@ -206,8 +227,26 @@ export default function SettingsPage() {
         setEditProfile(false);
     };
 
-    // Real-time profile field updates
+    // Field limits
+    const FIELD_LIMITS = {
+        full_name: 100,
+        bio: 1000,
+        phone: 20,
+        linkedin: 200,
+        instagram: 100,
+        website: 300,
+        skill: 50
+    };
+
+    // Real-time profile field updates with character limits
     const handleProfileFieldChange = async (field: string, value: string) => {
+        const limit = field === "bio" ? FIELD_LIMITS.bio : FIELD_LIMITS.full_name;
+        
+        // Enforce character limit
+        if (value.length > limit) {
+            value = value.substring(0, limit);
+        }
+        
         setProfileForm((prev: any) => ({ ...prev, [field]: value }));
         
         // Auto-save after user stops typing (debounced)
@@ -360,13 +399,21 @@ export default function SettingsPage() {
                                                     handleProfileFieldChange("full_name", e.target.value);
                                                 }}
                                                 placeholder="Your full name"
+                                                maxLength={FIELD_LIMITS.full_name}
                                             />
-                                            {saving.profile_full_name && (
-                                                <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin" />
-                                            )}
-                                            {savedFields.profile_full_name && (
-                                                <Check className="absolute right-2 top-2 h-4 w-4 text-green-500" />
-                                            )}
+                                            <div className={styles.characterCount}>
+                                                <span className="text-xs text-gray-500">
+                                                    {profileForm.full_name?.length || 0}/{FIELD_LIMITS.full_name}
+                                                </span>
+                                                <div className={styles.fieldFeedback}>
+                                                    {saving.profile_full_name && (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    )}
+                                                    {savedFields.profile_full_name && (
+                                                        <Check className="h-4 w-4 text-green-500" />
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     ) : (
                                         <h2>{profile.full_name}</h2>
@@ -401,13 +448,22 @@ export default function SettingsPage() {
                                                     handleProfileFieldChange("bio", e.target.value);
                                                 }}
                                                 placeholder="Tell others about yourself"
+                                                maxLength={FIELD_LIMITS.bio}
+                                                rows={4}
                                             />
-                                            {saving.profile_bio && (
-                                                <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin" />
-                                            )}
-                                            {savedFields.profile_bio && (
-                                                <Check className="absolute right-2 top-2 h-4 w-4 text-green-500" />
-                                            )}
+                                            <div className={styles.characterCount}>
+                                                <span className={`text-xs ${(profileForm.bio?.length || 0) > FIELD_LIMITS.bio * 0.9 ? 'text-orange-500' : 'text-gray-500'}`}>
+                                                    {profileForm.bio?.length || 0}/{FIELD_LIMITS.bio}
+                                                </span>
+                                                <div className={styles.fieldFeedback}>
+                                                    {saving.profile_bio && (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    )}
+                                                    {savedFields.profile_bio && (
+                                                        <Check className="h-4 w-4 text-green-500" />
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     ) : (
                                         <p className={styles.bio}>{profile.professional_bio}</p>
@@ -457,12 +513,23 @@ export default function SettingsPage() {
                                 ))}
                                 {editSkills && skillsArr.length < 8 && (
                                     <div className={styles.addSkillCard}>
-                                        <Input
-                                            value={skillsInput}
-                                            onChange={e => setSkillsInput(e.target.value)}
-                                            placeholder="Add skill"
-                                            disabled={saving.skills}
-                                        />
+                                        <div className="flex-1">
+                                            <Input
+                                                value={skillsInput}
+                                                onChange={e => {
+                                                    const value = e.target.value;
+                                                    if (value.length <= FIELD_LIMITS.skill) {
+                                                        setSkillsInput(value);
+                                                    }
+                                                }}
+                                                placeholder="Add skill"
+                                                maxLength={FIELD_LIMITS.skill}
+                                                disabled={saving.skills}
+                                            />
+                                            <span className={`text-xs mt-1 block ${skillsInput.length > FIELD_LIMITS.skill * 0.8 ? 'text-orange-500' : 'text-gray-500'}`}>
+                                                {skillsInput.length}/{FIELD_LIMITS.skill}
+                                            </span>
+                                        </div>
                                         <Button 
                                             onClick={handleAddSkill}
                                             disabled={saving.skills || !skillsInput.trim()}
@@ -514,13 +581,29 @@ export default function SettingsPage() {
                                                             handleContactFieldChange(key, e.target.value);
                                                         }}
                                                         placeholder={`Your ${label}`}
+                                                        maxLength={key === 'phone' ? FIELD_LIMITS.phone : 
+                                                                  key === 'linkedin' ? FIELD_LIMITS.linkedin :
+                                                                  key === 'instagram' ? FIELD_LIMITS.instagram :
+                                                                  FIELD_LIMITS.website}
                                                     />
-                                                    {saving[`contact_${key}`] && (
-                                                        <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin" />
-                                                    )}
-                                                    {savedFields[`contact_${key}`] && (
-                                                        <Check className="absolute right-2 top-2 h-4 w-4 text-green-500" />
-                                                    )}
+                                                    <div className={styles.characterCount}>
+                                                        <span className="text-xs text-gray-500">
+                                                            {contactForm[key]?.length || 0}/{
+                                                                key === 'phone' ? FIELD_LIMITS.phone : 
+                                                                key === 'linkedin' ? FIELD_LIMITS.linkedin :
+                                                                key === 'instagram' ? FIELD_LIMITS.instagram :
+                                                                FIELD_LIMITS.website
+                                                            }
+                                                        </span>
+                                                        <div className={styles.fieldFeedback}>
+                                                            {saving[`contact_${key}`] && (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            )}
+                                                            {savedFields[`contact_${key}`] && (
+                                                                <Check className="h-4 w-4 text-green-500" />
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             ) : (
                                                 <p>{profile[key]}</p>
