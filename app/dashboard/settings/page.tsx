@@ -21,6 +21,7 @@ import {
     Star,
     Check,
     X,
+    AlertCircle,
 } from "lucide-react";
 import styles from "./page.module.css";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,12 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/use-toast";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
+import { 
+    validateWebsite, 
+    validatePhone, 
+    validateLinkedIn, 
+    validateInstagram 
+} from "@/lib/validation";
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState("profile");
@@ -47,6 +54,7 @@ export default function SettingsPage() {
     const [ratingStats, setRatingStats] = useState<any>(null);
     const [saving, setSaving] = useState<{[key: string]: boolean}>({});
     const [savedFields, setSavedFields] = useState<{[key: string]: boolean}>({});
+    const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
     const router = useRouter();
 
     // Fetch profile on mount
@@ -188,11 +196,53 @@ export default function SettingsPage() {
 
     // Contact logic
     const handleContactSave = async () => {
+        // Validate all contact fields before saving
+        const fieldsToValidate = ['phone', 'website', 'linkedin', 'instagram'];
+        let hasErrors = false;
+        const newErrors: {[key: string]: string} = {};
+
+        for (const field of fieldsToValidate) {
+            const value = contactForm[field] || '';
+            let validation: { isValid: boolean; error?: string } = { isValid: true };
+            
+            switch (field) {
+                case 'phone':
+                    validation = validatePhone(value);
+                    break;
+                case 'website':
+                    validation = validateWebsite(value);
+                    break;
+                case 'linkedin':
+                    validation = validateLinkedIn(value);
+                    break;
+                case 'instagram':
+                    validation = validateInstagram(value);
+                    break;
+            }
+
+            if (!validation.isValid && validation.error) {
+                newErrors[field] = validation.error;
+                hasErrors = true;
+            }
+        }
+
+        setValidationErrors(newErrors);
+
+        if (hasErrors) {
+            toast({ 
+                title: "❌ Validation Error", 
+                description: "Please fix the validation errors before saving.",
+                variant: "destructive",
+                duration: 3000
+            });
+            return;
+        }
+
         await updateProfile(contactForm, "contact");
         setEditContact(false);
     };
 
-    // Real-time contact field updates with character limits
+    // Real-time contact field updates with character limits and validation
     const handleContactFieldChange = async (field: string, value: string) => {
         const limits = {
             phone: FIELD_LIMITS.phone,
@@ -208,13 +258,39 @@ export default function SettingsPage() {
             value = value.substring(0, limit);
         }
         
+        // Validate the field
+        let validation: { isValid: boolean; error?: string } = { isValid: true };
+        switch (field) {
+            case 'phone':
+                validation = validatePhone(value);
+                break;
+            case 'website':
+                validation = validateWebsite(value);
+                break;
+            case 'linkedin':
+                validation = validateLinkedIn(value);
+                break;
+            case 'instagram':
+                validation = validateInstagram(value);
+                break;
+        }
+
+        // Update validation errors
+        setValidationErrors(prev => ({
+            ...prev,
+            [field]: validation.error || ''
+        }));
+        
         setContactForm((prev: any) => ({ ...prev, [field]: value }));
         
-        // Auto-save after user stops typing (debounced)
-        clearTimeout((window as any)[`contactTimer_${field}`]);
-        (window as any)[`contactTimer_${field}`] = setTimeout(async () => {
-            await updateProfile({ [field]: value }, `contact_${field}`);
-        }, 1000);
+        // Only auto-save if validation passes
+        if (validation.isValid) {
+            // Auto-save after user stops typing (debounced)
+            clearTimeout((window as any)[`contactTimer_${field}`]);
+            (window as any)[`contactTimer_${field}`] = setTimeout(async () => {
+                await updateProfile({ [field]: value }, `contact_${field}`);
+            }, 1000);
+        }
     };
 
     // Profile logic
@@ -554,9 +630,15 @@ export default function SettingsPage() {
                             <div className={styles.sectionHeader}>
                                 <div>
                                     <h3>Contact Information</h3>
-                                    <p>Your matches will see these contact details</p>
+                                    <p>Your matches will see these contact details. All fields are optional.</p>
                                 </div>
-                                <button className={styles.editButton} onClick={() => setEditContact(!editContact)}>
+                                <button className={styles.editButton} onClick={() => {
+                                    if (editContact) {
+                                        // Clear validation errors when canceling
+                                        setValidationErrors({});
+                                    }
+                                    setEditContact(!editContact);
+                                }}>
                                     <Edit3 size={16} />
                                     {editContact ? "Cancel" : "Edit Contact"}
                                 </button>
@@ -580,12 +662,33 @@ export default function SettingsPage() {
                                                             setContactForm({ ...contactForm, [key]: e.target.value });
                                                             handleContactFieldChange(key, e.target.value);
                                                         }}
-                                                        placeholder={`Your ${label}`}
+                                                        placeholder={
+                                                            key === 'phone' ? 'e.g., +1 (555) 123-4567' :
+                                                            key === 'linkedin' ? 'e.g., linkedin.com/in/yourname or yourname' :
+                                                            key === 'instagram' ? 'e.g., instagram.com/yourname or @yourname' :
+                                                            key === 'website' ? 'e.g., www.yourwebsite.com' :
+                                                            `Your ${label}`
+                                                        }
                                                         maxLength={key === 'phone' ? FIELD_LIMITS.phone : 
                                                                   key === 'linkedin' ? FIELD_LIMITS.linkedin :
                                                                   key === 'instagram' ? FIELD_LIMITS.instagram :
                                                                   FIELD_LIMITS.website}
+                                                        className={validationErrors[key] ? styles.inputError : ''}
                                                     />
+                                                    {validationErrors[key] && (
+                                                        <div className={styles.validationError}>
+                                                            <AlertCircle className="h-3 w-3" />
+                                                            {validationErrors[key]}
+                                                        </div>
+                                                    )}
+                                                    {!validationErrors[key] && (
+                                                        <div className="text-xs text-gray-400 mt-1">
+                                                            {key === 'phone' && 'Format: +1 (555) 123-4567 or 555-123-4567'}
+                                                            {key === 'linkedin' && 'Format: linkedin.com/in/username or just username'}
+                                                            {key === 'instagram' && 'Format: instagram.com/username or @username'}
+                                                            {key === 'website' && 'Format: www.example.com or https://example.com'}
+                                                        </div>
+                                                    )}
                                                     <div className={styles.characterCount}>
                                                         <span className="text-xs text-gray-500">
                                                             {contactForm[key]?.length || 0}/{
@@ -599,8 +702,11 @@ export default function SettingsPage() {
                                                             {saving[`contact_${key}`] && (
                                                                 <Loader2 className="h-4 w-4 animate-spin" />
                                                             )}
-                                                            {savedFields[`contact_${key}`] && (
+                                                            {savedFields[`contact_${key}`] && !validationErrors[key] && (
                                                                 <Check className="h-4 w-4 text-green-500" />
+                                                            )}
+                                                            {validationErrors[key] && (
+                                                                <X className="h-4 w-4 text-red-500" />
                                                             )}
                                                         </div>
                                                     </div>
