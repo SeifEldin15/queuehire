@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { DatabaseService } from "@/lib/database";
 import { getMockUserRatingStats } from "@/lib/mockReviewsData";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import {
     Edit3,
     Phone,
@@ -18,6 +19,8 @@ import {
     User,
     Award,
     Star,
+    Check,
+    X,
 } from "lucide-react";
 import styles from "./page.module.css";
 import { Input } from "@/components/ui/input";
@@ -42,6 +45,8 @@ export default function SettingsPage() {
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
     const [ratingStats, setRatingStats] = useState<any>(null);
+    const [saving, setSaving] = useState<{[key: string]: boolean}>({});
+    const [savedFields, setSavedFields] = useState<{[key: string]: boolean}>({});
     const router = useRouter();
 
     // Fetch profile on mount
@@ -92,19 +97,66 @@ export default function SettingsPage() {
         fetchProfile();
     }, [router]);
 
-    // Helper to update profile
-    const updateProfile = async (updates: Partial<typeof profile>) => {
-        setLoading(true);
+    // Helper to update profile with optimistic updates
+    const updateProfile = useCallback(async (updates: Partial<typeof profile>, fieldKey?: string) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        const { data, error } = await supabase
-            .from("users")
-            .update(updates)
-            .eq("id", user.id)
-            .single();
-        if (!error && data) setProfile(data);
-        setLoading(false);
-    };
+
+        // Set saving state for specific field
+        if (fieldKey) {
+            setSaving(prev => ({ ...prev, [fieldKey]: true }));
+        }
+
+        // Optimistic update - immediately update the UI
+        const previousProfile = profile;
+        setProfile((prev: any) => ({ ...prev, ...updates }));
+
+        try {
+            const { data, error } = await supabase
+                .from("users")
+                .update(updates)
+                .eq("id", user.id)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // Update with actual data from server
+            if (data) {
+                setProfile(data);
+                
+                // Show success feedback
+                if (fieldKey) {
+                    setSavedFields(prev => ({ ...prev, [fieldKey]: true }));
+                    
+                    // Clear saved indicator after 2 seconds
+                    setTimeout(() => {
+                        setSavedFields(prev => ({ ...prev, [fieldKey]: false }));
+                    }, 2000);
+                }
+                
+                toast({ 
+                    title: "✅ Saved successfully", 
+                    description: "Your changes have been saved.",
+                    duration: 2000
+                });
+            }
+        } catch (error: any) {
+            // Revert optimistic update on error
+            setProfile(previousProfile);
+            
+            toast({ 
+                title: "❌ Save failed", 
+                description: error.message || "Failed to save changes. Please try again.",
+                variant: "destructive",
+                duration: 3000
+            });
+        } finally {
+            if (fieldKey) {
+                setSaving(prev => ({ ...prev, [fieldKey]: false }));
+            }
+        }
+    }, [profile, toast]);
 
     // Skills logic
     const skillsValue = profile?.user_type === "job_seeker" 
@@ -112,50 +164,73 @@ export default function SettingsPage() {
         : profile?.required_skills || "";
     const skillsArr = skillsValue.split(",").map((s: string) => s.trim()).filter(Boolean);
 
-    const handleAddSkill = () => {
+    const handleAddSkill = async () => {
         if (skillsArr.length >= 8 || !skillsInput.trim()) return;
         const newSkills = [...skillsArr, skillsInput.trim()];
         const updateField = profile?.user_type === "job_seeker" ? "skills_expertise" : "required_skills";
-        updateProfile({ [updateField]: newSkills.join(",") });
+        await updateProfile({ [updateField]: newSkills.join(",") }, "skills");
         setSkillsInput("");
         setEditSkills(false);
     };
 
-    const handleRemoveSkill = (skill: string) => {
+    const handleRemoveSkill = async (skill: string) => {
         const newSkills = skillsArr.filter((s: string) => s !== skill);
         const updateField = profile?.user_type === "job_seeker" ? "skills_expertise" : "required_skills";
-        updateProfile({ [updateField]: newSkills.join(",") });
+        await updateProfile({ [updateField]: newSkills.join(",") }, "skills");
     };
 
     // Contact logic
-    const handleContactSave = () => {
-        updateProfile(contactForm);
+    const handleContactSave = async () => {
+        await updateProfile(contactForm, "contact");
         setEditContact(false);
     };
 
+    // Real-time contact field updates
+    const handleContactFieldChange = async (field: string, value: string) => {
+        setContactForm((prev: any) => ({ ...prev, [field]: value }));
+        
+        // Auto-save after user stops typing (debounced)
+        clearTimeout((window as any)[`contactTimer_${field}`]);
+        (window as any)[`contactTimer_${field}`] = setTimeout(async () => {
+            await updateProfile({ [field]: value }, `contact_${field}`);
+        }, 1000);
+    };
+
     // Profile logic
-    const handleProfileSave = () => {
+    const handleProfileSave = async () => {
         const updates = {
             full_name: profileForm.full_name,
             professional_bio: profileForm.bio
         };
-        updateProfile(updates);
+        await updateProfile(updates, "profile");
         setEditProfile(false);
     };
 
-    // Preferences logic
-    const handlePreferenceChange = (field: string, value: string) => {
-        updateProfile({ [field]: value });
+    // Real-time profile field updates
+    const handleProfileFieldChange = async (field: string, value: string) => {
+        setProfileForm((prev: any) => ({ ...prev, [field]: value }));
+        
+        // Auto-save after user stops typing (debounced)
+        clearTimeout((window as any)[`profileTimer_${field}`]);
+        (window as any)[`profileTimer_${field}`] = setTimeout(async () => {
+            const updateKey = field === "bio" ? "professional_bio" : field;
+            await updateProfile({ [updateKey]: value }, `profile_${field}`);
+        }, 1000);
     };
 
-    // Security logic
-    const handleToggle2FA = () => {
-        updateProfile({ two_factor_enabled: !profile.two_factor_enabled });
+    // Preferences logic with real-time updates
+    const handlePreferenceChange = async (field: string, value: string) => {
+        await updateProfile({ [field]: value }, field);
     };
 
-    // Notifications logic
-    const handleNotificationChange = (field: string, value: boolean) => {
-        updateProfile({ [field]: value });
+    // Security logic with real-time updates
+    const handleToggle2FA = async () => {
+        await updateProfile({ two_factor_enabled: !profile.two_factor_enabled }, "two_factor");
+    };
+
+    // Notifications logic with real-time updates
+    const handleNotificationChange = async (field: string, value: boolean) => {
+        await updateProfile({ [field]: value }, field);
     };
 
     // Profile image upload logic
@@ -277,11 +352,22 @@ export default function SettingsPage() {
                             <div className={styles.profileDetails}>
                                 <div className={styles.nameSection}>
                                     {editProfile ? (
-                                        <Input
-                                            value={profileForm.full_name}
-                                            onChange={e => setProfileForm({ ...profileForm, full_name: e.target.value })}
-                                            placeholder="Your full name"
-                                        />
+                                        <div className="relative">
+                                            <Input
+                                                value={profileForm.full_name}
+                                                onChange={e => {
+                                                    setProfileForm({ ...profileForm, full_name: e.target.value });
+                                                    handleProfileFieldChange("full_name", e.target.value);
+                                                }}
+                                                placeholder="Your full name"
+                                            />
+                                            {saving.profile_full_name && (
+                                                <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin" />
+                                            )}
+                                            {savedFields.profile_full_name && (
+                                                <Check className="absolute right-2 top-2 h-4 w-4 text-green-500" />
+                                            )}
+                                        </div>
                                     ) : (
                                         <h2>{profile.full_name}</h2>
                                     )}
@@ -307,11 +393,22 @@ export default function SettingsPage() {
                                 <div className={styles.bioSection}>
                                     <h4>Bio</h4>
                                     {editProfile ? (
-                                        <Textarea
-                                            value={profileForm.bio}
-                                            onChange={e => setProfileForm({ ...profileForm, bio: e.target.value })}
-                                            placeholder="Tell others about yourself"
-                                        />
+                                        <div className="relative">
+                                            <Textarea
+                                                value={profileForm.bio}
+                                                onChange={e => {
+                                                    setProfileForm({ ...profileForm, bio: e.target.value });
+                                                    handleProfileFieldChange("bio", e.target.value);
+                                                }}
+                                                placeholder="Tell others about yourself"
+                                            />
+                                            {saving.profile_bio && (
+                                                <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin" />
+                                            )}
+                                            {savedFields.profile_bio && (
+                                                <Check className="absolute right-2 top-2 h-4 w-4 text-green-500" />
+                                            )}
+                                        </div>
                                     ) : (
                                         <p className={styles.bio}>{profile.professional_bio}</p>
                                     )}
@@ -351,8 +448,9 @@ export default function SettingsPage() {
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => handleRemoveSkill(skill)}
+                                                disabled={saving.skills}
                                             >
-                                                ×
+                                                {saving.skills ? <Loader2 className="h-3 w-3 animate-spin" /> : "×"}
                                             </Button>
                                         )}
                                     </div>
@@ -363,8 +461,20 @@ export default function SettingsPage() {
                                             value={skillsInput}
                                             onChange={e => setSkillsInput(e.target.value)}
                                             placeholder="Add skill"
+                                            disabled={saving.skills}
                                         />
-                                        <Button onClick={handleAddSkill}>+ Add</Button>
+                                        <Button 
+                                            onClick={handleAddSkill}
+                                            disabled={saving.skills || !skillsInput.trim()}
+                                        >
+                                            {saving.skills ? <Loader2 className="h-4 w-4 animate-spin" /> : "+ Add"}
+                                        </Button>
+                                    </div>
+                                )}
+                                {savedFields.skills && (
+                                    <div className="flex items-center text-green-500 text-sm">
+                                        <Check className="h-4 w-4 mr-1" />
+                                        Skills updated
                                     </div>
                                 )}
                             </div>
@@ -396,11 +506,22 @@ export default function SettingsPage() {
                                         <div>
                                             <h4>{label}</h4>
                                             {editContact ? (
-                                                <Input
-                                                    value={contactForm[key]}
-                                                    onChange={e => setContactForm({ ...contactForm, [key]: e.target.value })}
-                                                    placeholder={`Your ${label}`}
-                                                />
+                                                <div className="relative">
+                                                    <Input
+                                                        value={contactForm[key]}
+                                                        onChange={e => {
+                                                            setContactForm({ ...contactForm, [key]: e.target.value });
+                                                            handleContactFieldChange(key, e.target.value);
+                                                        }}
+                                                        placeholder={`Your ${label}`}
+                                                    />
+                                                    {saving[`contact_${key}`] && (
+                                                        <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin" />
+                                                    )}
+                                                    {savedFields[`contact_${key}`] && (
+                                                        <Check className="absolute right-2 top-2 h-4 w-4 text-green-500" />
+                                                    )}
+                                                </div>
                                             ) : (
                                                 <p>{profile[key]}</p>
                                             )}
@@ -437,11 +558,14 @@ export default function SettingsPage() {
                                         className={styles.select}
                                         value={profile.theme || "system"}
                                         onChange={e => handlePreferenceChange("theme", e.target.value)}
+                                        disabled={saving.theme}
                                     >
                                         <option value="light">Light</option>
                                         <option value="dark">Dark</option>
                                         <option value="system">System</option>
                                     </select>
+                                    {saving.theme && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                                    {savedFields.theme && <Check className="ml-2 h-4 w-4 text-green-500" />}
                                 </div>
                                 <div className={styles.preferenceItem}>
                                     <div>
@@ -452,11 +576,14 @@ export default function SettingsPage() {
                                         className={styles.select}
                                         value={profile.language || "English"}
                                         onChange={e => handlePreferenceChange("language", e.target.value)}
+                                        disabled={saving.language}
                                     >
                                         <option value="English">English</option>
                                         <option value="Arabic">Arabic</option>
                                         <option value="French">French</option>
                                     </select>
+                                    {saving.language && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                                    {savedFields.language && <Check className="ml-2 h-4 w-4 text-green-500" />}
                                 </div>
                             </div>
                         </div>
@@ -473,9 +600,15 @@ export default function SettingsPage() {
                                         <h4>Two-Factor Authentication</h4>
                                         <p>Add an extra layer of security to your account</p>
                                     </div>
-                                    <button className={styles.toggleButton} onClick={handleToggle2FA}>
+                                    <button 
+                                        className={styles.toggleButton} 
+                                        onClick={handleToggle2FA}
+                                        disabled={saving.two_factor}
+                                    >
+                                        {saving.two_factor && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         {profile.two_factor_enabled ? "Disable" : "Enable"}
                                     </button>
+                                    {savedFields.two_factor && <Check className="ml-2 h-4 w-4 text-green-500" />}
                                 </div>
                             </div>
                         </div>
@@ -491,24 +624,34 @@ export default function SettingsPage() {
                                         <h4>Email Notifications</h4>
                                         <p>Receive updates via email</p>
                                     </div>
-                                    <Switch
-                                        checked={!!profile.email_notifications}
-                                        onCheckedChange={checked =>
-                                            handleNotificationChange("email_notifications", checked)
-                                        }
-                                    />
+                                    <div className="flex items-center">
+                                        <Switch
+                                            checked={!!profile.email_notifications}
+                                            onCheckedChange={checked =>
+                                                handleNotificationChange("email_notifications", checked)
+                                            }
+                                            disabled={saving.email_notifications}
+                                        />
+                                        {saving.email_notifications && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                                        {savedFields.email_notifications && <Check className="ml-2 h-4 w-4 text-green-500" />}
+                                    </div>
                                 </div>
                                 <div className={styles.notificationItem}>
                                     <div>
                                         <h4>Match Alerts</h4>
                                         <p>Get notified when you have new matches</p>
                                     </div>
-                                    <Switch
-                                        checked={!!profile.match_alerts}
-                                        onCheckedChange={checked =>
-                                            handleNotificationChange("match_alerts", checked)
-                                        }
-                                    />
+                                    <div className="flex items-center">
+                                        <Switch
+                                            checked={!!profile.match_alerts}
+                                            onCheckedChange={checked =>
+                                                handleNotificationChange("match_alerts", checked)
+                                            }
+                                            disabled={saving.match_alerts}
+                                        />
+                                        {saving.match_alerts && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                                        {savedFields.match_alerts && <Check className="ml-2 h-4 w-4 text-green-500" />}
+                                    </div>
                                 </div>
                             </div>
                         </div>

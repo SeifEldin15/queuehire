@@ -1,5 +1,6 @@
--- QueueHire Final Database Schema
+-- QueueHire Final Database Schema (Version 2)
 -- This includes all tables, policies, triggers, and storage setup
+-- Designed to work reliably on first run without dependencies
 -- Run this in your Supabase SQL Editor to set up everything
 
 -- Enable required extensions
@@ -63,6 +64,8 @@ drop function if exists public.handle_new_user() cascade;
 drop function if exists public.update_updated_at_column() cascade;
 drop function if exists public.transfer_temp_profile_to_user(uuid, uuid) cascade;
 
+-- === TABLE CREATION SECTION ===
+
 -- USERS TABLE (extends Supabase auth.users)
 create table public.users (
     id uuid primary key references auth.users(id) on delete cascade,
@@ -104,12 +107,32 @@ create table public.reviews (
     unique (reviewer_id, reviewed_user_id) -- prevent duplicate reviews
 );
 
+-- TEMPORARY PROFILES TABLE FOR REGISTRATION FLOW
+create table public.temp_profiles (
+    id uuid default gen_random_uuid() primary key,
+    full_name text,
+    user_type text check (user_type in ('job_seeker', 'hiring')) not null,
+    skills_expertise text,
+    required_skills text,
+    professional_bio text,
+    profile_image text,
+    phone text,
+    linkedin text,
+    instagram text,
+    website text,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    expires_at timestamp with time zone default (timezone('utc'::text, now()) + interval '24 hours') not null
+);
+
+-- === ROW LEVEL SECURITY SETUP ===
+
 -- Enable Row Level Security (RLS)
 alter table public.users enable row level security;
 alter table public.saved_contacts enable row level security;
 alter table public.reviews enable row level security;
+alter table public.temp_profiles enable row level security;
 
--- RLS POLICIES FOR USERS TABLE
+-- === RLS POLICIES FOR USERS TABLE ===
 
 -- Allow all users to view all profiles (for matching/discovery)
 create policy "Users can view all profiles" on public.users
@@ -127,7 +150,7 @@ create policy "Users can insert own profile" on public.users
 create policy "Users can delete own profile" on public.users
     for delete using (auth.uid() = id);
 
--- RLS POLICIES FOR SAVED CONTACTS TABLE
+-- === RLS POLICIES FOR SAVED CONTACTS TABLE ===
 
 -- Users can view their own saved contacts
 create policy "Users can view own saved contacts" on public.saved_contacts
@@ -137,7 +160,7 @@ create policy "Users can view own saved contacts" on public.saved_contacts
 create policy "Users can manage own saved contacts" on public.saved_contacts
     for all using (auth.uid() = user_id);
 
--- RLS POLICIES FOR REVIEWS TABLE
+-- === RLS POLICIES FOR REVIEWS TABLE ===
 
 -- Anyone can view reviews (public ratings)
 create policy "Anyone can view reviews" on public.reviews
@@ -155,7 +178,21 @@ create policy "Users can update own reviews" on public.reviews
 create policy "Users can delete own reviews" on public.reviews
     for delete using (auth.uid() = reviewer_id);
 
--- FUNCTIONS AND TRIGGERS
+-- === RLS POLICIES FOR TEMP PROFILES TABLE ===
+
+-- Anyone can create temporary profiles (for registration)
+create policy "Anyone can create temp profiles" on public.temp_profiles
+    for insert with check (true);
+
+-- Anyone can read temp profiles by ID (for registration flow)
+create policy "Anyone can read temp profiles by ID" on public.temp_profiles
+    for select using (true);
+
+-- Anyone can update temp profiles (for registration flow)
+create policy "Anyone can update temp profiles" on public.temp_profiles
+    for update using (true);
+
+-- === FUNCTIONS AND TRIGGERS ===
 
 -- Function to handle new user registration
 create or replace function public.handle_new_user() 
@@ -201,7 +238,42 @@ create trigger update_users_updated_at
     before update on public.users
     for each row execute procedure public.update_updated_at_column();
 
--- STORAGE SETUP FOR PROFILE IMAGES
+-- Function to transfer temp profile to permanent user profile
+create or replace function public.transfer_temp_profile_to_user(
+    temp_profile_id uuid,
+    user_id uuid
+) returns void as $$
+declare
+    temp_data record;
+begin
+    -- Get the temporary profile data
+    select * into temp_data from public.temp_profiles where id = temp_profile_id;
+    
+    if not found then
+        raise exception 'Temporary profile not found';
+    end if;
+    
+    -- Update the user's profile with temp data
+    update public.users set
+        full_name = coalesce(temp_data.full_name, full_name),
+        user_type = coalesce(temp_data.user_type, user_type),
+        skills_expertise = coalesce(temp_data.skills_expertise, skills_expertise),
+        required_skills = coalesce(temp_data.required_skills, required_skills),
+        professional_bio = coalesce(temp_data.professional_bio, professional_bio),
+        profile_image = coalesce(temp_data.profile_image, profile_image),
+        phone = coalesce(temp_data.phone, phone),
+        linkedin = coalesce(temp_data.linkedin, linkedin),
+        instagram = coalesce(temp_data.instagram, instagram),
+        website = coalesce(temp_data.website, website),
+        updated_at = now()
+    where id = user_id;
+    
+    -- Clean up the temporary profile
+    delete from public.temp_profiles where id = temp_profile_id;
+end;
+$$ language plpgsql security definer;
+
+-- === STORAGE SETUP FOR PROFILE IMAGES ===
 
 -- Create storage bucket for profile images (safe method)
 do $$ begin
@@ -238,7 +310,7 @@ create policy "Users can delete their own profile images" on storage.objects
         and auth.uid()::text = (storage.foldername(name))[1]
     );
 
--- INDEXES FOR PERFORMANCE
+-- === INDEXES FOR PERFORMANCE ===
 
 -- Index for user lookups by type
 create index if not exists idx_users_user_type on public.users(user_type);
@@ -256,88 +328,9 @@ create index if not exists idx_reviews_reviewer_id on public.reviews(reviewer_id
 create index if not exists idx_reviews_rating on public.reviews(rating);
 create index if not exists idx_reviews_created_at on public.reviews(created_at);
 
--- TEMPORARY PROFILES TABLE FOR REGISTRATION FLOW
-create table if not exists public.temp_profiles (
-    id uuid default gen_random_uuid() primary key,
-    full_name text,
-    user_type text check (user_type in ('job_seeker', 'hiring')) not null,
-    skills_expertise text,
-    required_skills text,
-    professional_bio text,
-    profile_image text,
-    phone text,
-    linkedin text,
-    instagram text,
-    website text,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-    expires_at timestamp with time zone default (timezone('utc'::text, now()) + interval '24 hours') not null
-);
-
--- Index for faster lookups
+-- Index for faster temp profile lookups
 create index if not exists idx_temp_profiles_created_at on public.temp_profiles(created_at);
 create index if not exists idx_temp_profiles_expires_at on public.temp_profiles(expires_at);
-
--- RLS Policies for temp_profiles (no auth required since users aren't logged in yet)
-alter table public.temp_profiles enable row level security;
-
--- Anyone can create temporary profiles (for registration)
-create policy "Anyone can create temp profiles" on public.temp_profiles
-    for insert with check (true);
-
--- Anyone can read temp profiles by ID (for registration flow)
-create policy "Anyone can read temp profiles by ID" on public.temp_profiles
-    for select using (true);
-
--- Anyone can update temp profiles (for registration flow)
-create policy "Anyone can update temp profiles" on public.temp_profiles
-    for update using (true);
-
--- Function to transfer temp profile to permanent user profile
-create or replace function public.transfer_temp_profile_to_user(
-    temp_profile_id uuid,
-    user_id uuid
-) returns void as $$
-declare
-    temp_data record;
-begin
-    -- Get the temporary profile data
-    select * into temp_data from public.temp_profiles where id = temp_profile_id;
-    
-    if not found then
-        raise exception 'Temporary profile not found';
-    end if;
-    
-    -- Update the user's profile with temp data
-    update public.users set
-        full_name = coalesce(temp_data.full_name, full_name),
-        user_type = coalesce(temp_data.user_type, user_type),
-        skills_expertise = coalesce(temp_data.skills_expertise, skills_expertise),
-        required_skills = coalesce(temp_data.required_skills, required_skills),
-        professional_bio = coalesce(temp_data.professional_bio, professional_bio),
-        profile_image = coalesce(temp_data.profile_image, profile_image),
-        phone = coalesce(temp_data.phone, phone),
-        linkedin = coalesce(temp_data.linkedin, linkedin),
-        instagram = coalesce(temp_data.instagram, instagram),
-        website = coalesce(temp_data.website, website),
-        updated_at = now()
-    where id = user_id;
-    
-    -- Clean up the temporary profile
-    delete from public.temp_profiles where id = temp_profile_id;
-end;
-$$ language plpgsql security definer;
-
--- SAMPLE DATA (optional - remove if not needed)
-
--- Insert some sample users for testing (only if table is empty)
--- do $$
--- begin
---     if not exists (select 1 from public.users limit 1) then
---         insert into public.users (id, email, full_name, user_type, professional_bio, skills_expertise, required_skills) values
---         (gen_random_uuid(), 'john.seeker@example.com', 'John Doe', 'job_seeker', 'Experienced software developer', 'JavaScript, React, Node.js', null),
---         (gen_random_uuid(), 'jane.recruiter@example.com', 'Jane Smith', 'hiring', 'Tech recruiter at StartupCorp', null, 'Full-stack development, React');
---     end if;
--- end $$;
 
 -- === VERIFICATION QUERIES ===
 
