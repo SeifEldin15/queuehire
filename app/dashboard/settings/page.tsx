@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/useAuth";
 import {
     Edit3,
     Phone,
@@ -36,7 +37,6 @@ import {
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState("profile");
-    const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [editSkills, setEditSkills] = useState(false);
     const [skillsInput, setSkillsInput] = useState<string>("");
@@ -51,47 +51,42 @@ export default function SettingsPage() {
     const [savedFields, setSavedFields] = useState<{[key: string]: boolean}>({});
     const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
     const router = useRouter();
+    const { user, profile, updateProfile: authUpdateProfile, refreshProfile } = useAuth();
 
     // Fetch profile on mount
     useEffect(() => {
-        const fetchProfile = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
+        const initializeSettings = async () => {
             if (!user) {
                 router.replace("/login");
                 return;
             }
-            const { data, error } = await supabase
-                .from("users")
-                .select("*")
-                .eq("id", user.id)
-                .single();
-            setProfile(data);
             
-            // Set skills based on user type
-            const skillsValue = data?.user_type === "job_seeker" 
-                ? data?.skills_expertise || ""
-                : data?.required_skills || "";
-            setSkillsInput(skillsValue);
-            setContactForm({
-                phone: data?.phone || "",
-                linkedin: data?.linkedin || "",
-                instagram: data?.instagram || "",
-                website: data?.website || "",
-            });
-            setProfileForm({
-                full_name: data?.full_name || "",
-                bio: data?.professional_bio || "",
-            });
-            setLoading(false);
+            if (profile) {
+                // Set skills based on user type
+                const skillsValue = profile?.user_type === "job_seeker" 
+                    ? profile?.skills_expertise || ""
+                    : profile?.required_skills || "";
+                setSkillsInput(skillsValue);
+                setContactForm({
+                    phone: profile?.phone || "",
+                    linkedin: profile?.linkedin || "",
+                    instagram: profile?.instagram || "",
+                    website: profile?.website || "",
+                });
+                setProfileForm({
+                    full_name: profile?.full_name || "",
+                    bio: profile?.professional_bio || "",
+                });
+                setLoading(false);
+            }
         };
-        fetchProfile();
-    }, [router]);
+        initializeSettings();
+    }, [user, profile, router]);
 
-    // Helper to update profile with optimistic updates
-    const updateProfile = useCallback(async (updates: Partial<typeof profile>, fieldKey?: string) => {
+    // Helper to update profile with optimistic updates and sidebar refresh
+    const updateProfile = useCallback(async (updates: any, fieldKey?: string) => {
         console.log('🔄 updateProfile called with:', updates);
         
-        const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
             console.error('❌ updateProfile: No authenticated user found');
             return { error: new Error('No authenticated user found') };
@@ -104,50 +99,36 @@ export default function SettingsPage() {
             setSaving(prev => ({ ...prev, [fieldKey]: true }));
         }
 
-        // Optimistic update - immediately update the UI
-        const previousProfile = profile;
-        setProfile((prev: any) => ({ ...prev, ...updates }));
-
         try {
             console.log('📡 updateProfile: Making database update...');
-            const { data, error } = await supabase
-                .from("users")
-                .update(updates)
-                .eq("id", user.id)
-                .select()
-                .single();
+            
+            // Use the auth context update method which will refresh the sidebar
+            const result = await authUpdateProfile(updates);
+            
+            console.log('📊 updateProfile: Database result:', result);
 
-            console.log('📊 updateProfile: Database result:', { data, error });
+            if (result.error) throw result.error;
 
-            if (error) throw error;
-
-            // Update with actual data from server
-            if (data) {
-                setProfile(data);
+            // Show success feedback
+            if (fieldKey) {
+                setSavedFields(prev => ({ ...prev, [fieldKey]: true }));
                 
-                // Show success feedback
-                if (fieldKey) {
-                    setSavedFields(prev => ({ ...prev, [fieldKey]: true }));
-                    
-                    // Clear saved indicator after 2 seconds
-                    setTimeout(() => {
-                        setSavedFields(prev => ({ ...prev, [fieldKey]: false }));
-                    }, 2000);
-                }
-                
-                toast({ 
-                    title: "✅ Saved successfully", 
-                    description: "Your changes have been saved.",
-                    duration: 2000
-                });
+                // Clear saved indicator after 2 seconds
+                setTimeout(() => {
+                    setSavedFields(prev => ({ ...prev, [fieldKey]: false }));
+                }, 2000);
             }
+            
+            toast({ 
+                title: "✅ Saved successfully", 
+                description: "Your changes have been saved.",
+                duration: 2000
+            });
             
             console.log('✅ updateProfile: Success');
             return { error: null };
         } catch (error: any) {
             console.error('❌ updateProfile: Error:', error);
-            // Revert optimistic update on error
-            setProfile(previousProfile);
             
             toast({ 
                 title: "❌ Save failed", 
@@ -162,7 +143,7 @@ export default function SettingsPage() {
                 setSaving(prev => ({ ...prev, [fieldKey]: false }));
             }
         }
-    }, [profile, toast]);
+    }, [user, authUpdateProfile, toast]);
 
     // Skills logic
     const skillsValue = profile?.user_type === "job_seeker" 
@@ -338,7 +319,9 @@ export default function SettingsPage() {
 
     // Security logic with real-time updates
     const handleToggle2FA = async () => {
-        await updateProfile({ two_factor_enabled: !profile.two_factor_enabled }, "two_factor");
+        if (!profile) return;
+        const profileAny = profile as any;
+        await updateProfile({ two_factor_enabled: !profileAny.two_factor_enabled }, "two_factor");
     };
 
     // Notifications logic with real-time updates
@@ -793,7 +776,7 @@ export default function SettingsPage() {
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <p>{profile[key]}</p>
+                                                <p>{(profile as any)[key]}</p>
                                             )}
                                         </div>
                                     </div>
@@ -826,7 +809,7 @@ export default function SettingsPage() {
                                     </div>
                                     <select
                                         className={styles.select}
-                                        value={profile.theme || "system"}
+                                        value={(profile as any)?.theme || "system"}
                                         onChange={e => handlePreferenceChange("theme", e.target.value)}
                                         disabled={saving.theme}
                                     >
@@ -844,7 +827,7 @@ export default function SettingsPage() {
                                     </div>
                                     <select
                                         className={styles.select}
-                                        value={profile.language || "English"}
+                                        value={(profile as any)?.language || "English"}
                                         onChange={e => handlePreferenceChange("language", e.target.value)}
                                         disabled={saving.language}
                                     >
@@ -876,7 +859,7 @@ export default function SettingsPage() {
                                         disabled={saving.two_factor}
                                     >
                                         {saving.two_factor && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        {profile.two_factor_enabled ? "Disable" : "Enable"}
+                                        {(profile as any)?.two_factor_enabled ? "Disable" : "Enable"}
                                     </button>
                                     {savedFields.two_factor && <Check className="ml-2 h-4 w-4 text-green-500" />}
                                 </div>
@@ -896,7 +879,7 @@ export default function SettingsPage() {
                                     </div>
                                     <div className="flex items-center">
                                         <Switch
-                                            checked={!!profile.email_notifications}
+                                            checked={!!(profile as any)?.email_notifications}
                                             onCheckedChange={checked =>
                                                 handleNotificationChange("email_notifications", checked)
                                             }
@@ -913,7 +896,7 @@ export default function SettingsPage() {
                                     </div>
                                     <div className="flex items-center">
                                         <Switch
-                                            checked={!!profile.match_alerts}
+                                            checked={!!(profile as any)?.match_alerts}
                                             onCheckedChange={checked =>
                                                 handleNotificationChange("match_alerts", checked)
                                             }

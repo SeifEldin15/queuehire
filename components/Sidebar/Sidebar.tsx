@@ -5,46 +5,21 @@ import Link from "next/link";
 import { Home, Star, Settings, Zap, ExternalLink, Menu, X } from "lucide-react";
 import styles from "./Sidebar.module.css";
 import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/lib/useAuth";
 
 
 export default function Sidebar() {
 	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [profile, setProfile] = useState<any>(null);
 	const [userEmail, setUserEmail] = useState<string>("");
-	const [isLoading, setIsLoading] = useState(true);
 	const pathname = usePathname();
 	const router = useRouter();
+	const { user, profile, loading: authLoading } = useAuth();
 
-	    useEffect(() => {
-        const fetchProfile = async () => {
-            setIsLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                setProfile(null);
-				setUserEmail("");
-                setIsLoading(false);
-                return;
-            }
-		    setUserEmail(user.email || ""); // <-- Get email from Auth
-            
-            // Fetch from 'users' table (not 'profiles')
-            const { data, error } = await supabase
-                .from("users")
-                .select("id, full_name, profile_image, professional_bio, skills_expertise, user_type")
-                .eq("id", user.id)
-                .single();
-            
-            if (error) {
-                console.error('Error fetching user profile:', error);
-                setProfile(null);
-            } else {
-                console.log('User profile loaded:', data);
-                setProfile(data);
-            }
-            setIsLoading(false);
-        };
-        fetchProfile();
-    }, []);
+	useEffect(() => {
+		if (user?.email) {
+			setUserEmail(user.email);
+		}
+	}, [user]);
 
     const handleSignOut = async () => {
         await supabase.auth.signOut();
@@ -111,7 +86,7 @@ export default function Sidebar() {
 					{/* User Profile Section */}
 					<div className={styles.profileSection}>
 						<div className={styles.avatar}>
-                            {isLoading ? (
+                            {authLoading ? (
                                 <span>•••</span>
                             ) : profile?.profile_image ? (
                                 <img 
@@ -134,18 +109,18 @@ export default function Sidebar() {
 						</div>
 						<div className={styles.userInfo}>
 							<h3 className={styles.userName}>
-                                {isLoading 
+                                {authLoading 
                                     ? "Loading..." 
                                     : profile?.full_name || userEmail?.split('@')[0] || "User"}
                             </h3>
 							<p className={styles.userEmail}>
-								{isLoading ? "Loading..." : userEmail || "user@email.com"}
+								{authLoading ? "Loading..." : userEmail || "user@email.com"}
 							</p>
 							<Link
 								href="/profile"
 								className={styles.profileLink}
 							>
-								{isLoading 
+								{authLoading 
                                     ? "Profile" 
                                     : profile?.user_type === 'hiring' ? 'Recruiter Profile' : 'Seeker Profile'}
 							</Link>
