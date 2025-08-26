@@ -157,25 +157,6 @@ exception when others then
     raise warning 'Error adding validation constraints: %', sqlerrm;
 end $$;
 
--- === ADD REVIEW CONSTRAINTS ===
-
-do $$ begin
-    -- Add review text length constraint
-    if not exists (select 1 from information_schema.check_constraints where constraint_name = 'review_text_length') then
-        alter table public.reviews add constraint review_text_length check (char_length(review_text) <= 2000);
-        raise notice 'Added review_text_length constraint ✓';
-    end if;
-    
-    -- Add meeting context length constraint
-    if not exists (select 1 from information_schema.check_constraints where constraint_name = 'meeting_context_length') then
-        alter table public.reviews add constraint meeting_context_length check (char_length(meeting_context) <= 500);
-        raise notice 'Added meeting_context_length constraint ✓';
-    end if;
-    
-exception when others then
-    raise warning 'Error adding review constraints: %', sqlerrm;
-end $$;
-
 -- === TEMP PROFILES CONSTRAINTS ===
 
 do $$ begin
@@ -243,5 +224,3 @@ select 'LinkedIn: 200 characters' as limit;
 select 'Instagram: 100 characters' as limit;
 select 'Website: 300 characters' as limit;
 select 'Skills: Max 8 skills, 50 characters each' as limit;
-select 'Review Text: 2,000 characters' as limit;
-select 'Meeting Context: 500 characters' as limit;

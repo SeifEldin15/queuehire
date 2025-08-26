@@ -97,30 +97,13 @@
   color: #374151;
 }
 
-.ratingContainer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.stars {
-  display: flex;
-  gap: 2px;
-}
-
-.starFilled {
-  color: #fbbf24;
+.userType {
+  background: #f3f4f6;
+  color: #374151;
+  padding: 4px 8px;
+  border-radius: 6px;
   font-size: 14px;
-}
-
-.starEmpty {
-  color: #d1d5db;
-  font-size: 14px;
-}
-
-.ratingCount {
-  font-size: 12px;
-  color: #6b7280;
+  font-weight: 500;
 }
 
 .visitProfileBtn {

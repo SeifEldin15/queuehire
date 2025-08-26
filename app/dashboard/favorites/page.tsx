@@ -99,18 +99,6 @@ export default function FavoritesPage() {
 		return savedContacts.length < limit;
 	};
 
-	const renderStars = (userType: string) => {
-		// For now, we'll show a simple user type indicator instead of ratings
-		// You can implement a rating system later if needed
-		return (
-			<div className={styles.ratingContainer}>
-				<span className={styles.userType}>
-					{userType === 'job_seeker' ? '👤 Job Seeker' : '🏢 Hiring Manager'}
-				</span>
-			</div>
-		);
-	};
-
 	if (loading) {
 		return (
 			<div className={styles.container}>
@@ -144,7 +132,7 @@ export default function FavoritesPage() {
 					</div>
 
 					<div className={styles.tableBody}>
-						{savedContacts.map((contact, index) => (
+						{savedContacts.map((contact) => (
 							<div key={contact.id} className={styles.tableRow}>
 								<div className={styles.nameCell}>
 									<div className={styles.contactAvatar}>
@@ -163,7 +151,9 @@ export default function FavoritesPage() {
 									{new Date(contact.created_at).toLocaleDateString()}
 								</div>
 								<div className={styles.cell}>
-									{renderStars(contact.saved_contact?.user_type || 'job_seeker')}
+									<span className={styles.userType}>
+										{contact.saved_contact?.user_type === 'job_seeker' ? '👤 Job Seeker' : '🏢 Hiring Manager'}
+									</span>
 								</div>
 								<div className={styles.cell}>
 									<button className={styles.visitProfileBtn}>

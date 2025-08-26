@@ -53,9 +53,9 @@ export default function HomePage() {
                         </h1>
                         <p className={styles.heroSubtitle}>
                             Upwork and Fiverr are slow, expensive solutions, and
-                            frankly quite different. No service fees. No fiddle
-                            reviews. No endless waiting. Find your match in a
-                            call instantly — 5 minutes free, every day.
+                            frankly quite different. No service fees. No endless 
+                            waiting. Find your match in a call instantly — 5 minutes 
+                            free, every day.
                         </p>
                         <div className={styles.heroButtons}>
                             <Link href="/register/seeker">

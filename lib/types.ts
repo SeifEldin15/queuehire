@@ -31,19 +31,3 @@ export interface PendingProfile {
   bio?: string;
   profile_image?: string;
 }
-
-export interface TempProfile {
-  id: string;
-  full_name?: string;
-  user_type: 'job_seeker' | 'hiring';
-  skills_expertise?: string;
-  required_skills?: string;
-  professional_bio?: string;
-  profile_image?: string;
-  phone?: string;
-  linkedin?: string;
-  instagram?: string;
-  website?: string;
-  created_at: string;
-  expires_at: string;
-}

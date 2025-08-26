@@ -28,9 +28,16 @@ export class DatabaseService {
     try {
       console.log('DatabaseService.updateUserProfile called with:', { userId, updates });
       
+      // Remove any undefined values to avoid issues
+      const cleanUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([_, value]) => value !== undefined)
+      );
+      
+      console.log('Cleaned updates:', cleanUpdates);
+      
       const { data, error } = await supabase
         .from('users')
-        .update(updates)
+        .update(cleanUpdates)
         .eq('id', userId)
         .select()
         .single();
@@ -39,6 +46,12 @@ export class DatabaseService {
 
       if (error) {
         console.error('Error updating user profile:', error);
+        console.error('Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         return null;
       }
 
@@ -240,158 +253,4 @@ export class DatabaseService {
     }
   }
 
-  // Review-related functions
-  static async getUserRatingStats(userId: string) {
-    try {
-      const { data, error } = await supabase
-        .from('user_rating_stats')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching user rating stats:', error);
-        throw error;
-      }
-
-      return data || {
-        user_id: userId,
-        average_rating: 0,
-        total_reviews: 0,
-        five_star_count: 0,
-        four_star_count: 0,
-        three_star_count: 0,
-        two_star_count: 0,
-        one_star_count: 0
-      };
-    } catch (error) {
-      console.error('Error fetching user rating stats:', error);
-      throw error;
-    }
-  }
-
-  static async getUserReviews(userId: string) {
-    try {
-      const { data, error } = await supabase
-        .from('reviews')
-        .select(`
-          *,
-          reviewer:reviewer_id(id, full_name, email)
-        `)
-        .eq('reviewed_user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching user reviews:', error);
-        throw error;
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching user reviews:', error);
-      throw error;
-    }
-  }
-
-  // Temporary Profile functions for registration flow
-  static async createTempProfile(profileData: {
-    full_name?: string;
-    user_type: 'job_seeker' | 'hiring';
-    skills_expertise?: string;
-    required_skills?: string;
-    professional_bio?: string;
-    profile_image?: string;
-    phone?: string;
-    linkedin?: string;
-    instagram?: string;
-    website?: string;
-  }) {
-    try {
-      const { data, error } = await supabase
-        .from('temp_profiles')
-        .insert([profileData])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating temp profile:', error);
-        throw error;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Error creating temp profile:', error);
-      throw error;
-    }
-  }
-
-  static async getTempProfile(tempProfileId: string) {
-    try {
-      const { data, error } = await supabase
-        .from('temp_profiles')
-        .select('*')
-        .eq('id', tempProfileId)
-        .single();
-
-      if (error) {
-        console.error('Error fetching temp profile:', error);
-        throw error;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Error fetching temp profile:', error);
-      throw error;
-    }
-  }
-
-  static async updateTempProfile(tempProfileId: string, updates: {
-    full_name?: string;
-    skills_expertise?: string;
-    required_skills?: string;
-    professional_bio?: string;
-    profile_image?: string;
-    phone?: string;
-    linkedin?: string;
-    instagram?: string;
-    website?: string;
-  }) {
-    try {
-      const { data, error } = await supabase
-        .from('temp_profiles')
-        .update(updates)
-        .eq('id', tempProfileId)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error updating temp profile:', error);
-        throw error;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Error updating temp profile:', error);
-      throw error;
-    }
-  }
-
-  static async transferTempProfileToUser(tempProfileId: string, userId: string) {
-    try {
-      const { error } = await supabase.rpc('transfer_temp_profile_to_user', {
-        temp_profile_id: tempProfileId,
-        user_id: userId
-      });
-
-      if (error) {
-        console.error('Error transferring temp profile:', error);
-        throw error;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error transferring temp profile:', error);
-      throw error;
-    }
-  }
 }

@@ -8,16 +8,18 @@ import { supabase } from "@/lib/supabaseClient";
 import { DatabaseService } from "@/lib/database";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/useAuth";
+import { useRegistration } from "@/lib/RegistrationContext";
 
 
 
 export default function SeekerPage() {
 	const { user, profile, refreshProfile } = useAuth();
-	const [profileImage, setProfileImage] = useState<string | null>(null);
+	const { registrationData, updateRegistrationData } = useRegistration();
+	const [profileImage, setProfileImage] = useState<string | null>(registrationData.profileImage || null);
 	const [formData, setFormData] = useState({
-		fullName: "",
-		skills: "",
-		bio: "",
+		fullName: registrationData.fullName || "",
+		skills: registrationData.skills || "",
+		bio: registrationData.bio || "",
 	});
 	const [errors, setErrors] = useState<{ [key: string]: string }>({});
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,28 +38,6 @@ export default function SeekerPage() {
 				setProfileImage(profile.profile_image);
 			}
 		}
-		
-		// Test storage bucket connection
-		const testStorageBucket = async () => {
-			try {
-				const { data, error } = await supabase.storage.listBuckets();
-				console.log('Available storage buckets:', data);
-				if (error) {
-					console.error('Storage bucket check error:', error);
-				}
-				
-				const profileImagesBucket = data?.find(bucket => bucket.id === 'profile-images');
-				if (!profileImagesBucket) {
-					console.warn('Profile-images bucket not found. You need to create it in Supabase.');
-				} else {
-					console.log('Profile-images bucket found:', profileImagesBucket);
-				}
-			} catch (err) {
-				console.error('Storage check error:', err);
-			}
-		};
-		
-		testStorageBucket();
 	}, [profile]);
 
 const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,46 +63,32 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 		});
 
 		try {
-			// Generate unique filename
-			const fileExt = file.name.split('.').pop();
-			const uniqueId = crypto.randomUUID();
-			const timestamp = Date.now();
-			const fileName = `seekers/${uniqueId}_${timestamp}.${fileExt}`;
-			
-			console.log('Uploading image with filename:', fileName);
+			// Create FormData for file upload
+			const formData = new FormData();
+			formData.append('file', file);
 
-			// Upload to Supabase Storage
-			const { data, error } = await supabase.storage
-				.from("profile-images")
-				.upload(fileName, file, {
-					cacheControl: "3600",
-					upsert: false,
-				});
+			console.log('Uploading image to traditional upload endpoint...');
 
-			console.log('Upload response:', { data, error });
+			// Upload to our API endpoint
+			const response = await fetch('/api/upload-profile-image', {
+				method: 'POST',
+				body: formData,
+			});
 
-			if (error) {
-				console.error('Image upload error:', error);
-				if (error.message.includes('Bucket not found')) {
-					setErrors(prev => ({...prev, image: "Storage bucket not found. Please contact support."}));
-				} else if (error.message.includes('not allowed')) {
-					setErrors(prev => ({...prev, image: "Upload not allowed. Please check permissions."}));
-				} else {
-					setErrors(prev => ({...prev, image: `Upload failed: ${error.message}`}));
-				}
-				return;
+			const result = await response.json();
+
+			if (!response.ok) {
+				throw new Error(result.error || 'Upload failed');
 			}
 
-			if (data) {
-				console.log('Image uploaded successfully:', data);
+			if (result.success) {
+				console.log('Image uploaded successfully:', result.url);
+				setProfileImage(result.url);
 				
-				// Get public URL
-				const { data: urlData } = supabase.storage
-					.from("profile-images")
-					.getPublicUrl(data.path);
-				
-				console.log('Image public URL:', urlData.publicUrl);
-				setProfileImage(urlData.publicUrl);
+				// Update registration context
+				updateRegistrationData({
+					profileImage: result.url
+				});
 				
 				// Clear any previous errors
 				setErrors(prev => {
@@ -133,13 +99,17 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 			}
 		} catch (err) {
 			console.error('Image upload error:', err);
-			setErrors(prev => ({...prev, image: "Failed to upload image. Please try again."}));
+			setErrors(prev => ({...prev, image: `Failed to upload image: ${err instanceof Error ? err.message : 'Unknown error'}`}));
 		}
 	}
 };
 
 	const removeImage = () => {
 		setProfileImage(null);
+		// Update registration context
+		updateRegistrationData({
+			profileImage: undefined
+		});
 	};
 
 	const handleInputChange = (
@@ -196,6 +166,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 			// If user is already authenticated, save directly to database
 			if (user) {
 				console.log('User is authenticated, saving profile to database...');
+				console.log('Current profileImage state:', profileImage);
 				
 				// Skip auth metadata update for now - focus on profile data
 				console.log('Step 1: Skipping auth metadata update (causing delays)');
@@ -205,11 +176,12 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 					full_name: formData.fullName.trim(),
 					professional_bio: formData.bio.trim(),
 					skills_expertise: formData.skills.trim(),
-					profile_image: profileImage || "",
+					profile_image: profileImage || null, // Use null instead of empty string
 					user_type: "job_seeker" // This must match the schema constraint exactly
 				};
 
 				console.log('Step 2: Updating user profile with data:', profileUpdateData);
+				console.log('Profile image being saved:', profileUpdateData.profile_image);
 				console.log('User ID:', user.id);
 
 				const { data, error } = await supabase
@@ -243,33 +215,22 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 				// Redirect to dashboard
 				router.push('/dashboard');
 			} else {
-				// User not authenticated, save to temporary profile and continue registration
-				console.log('User not authenticated, saving to temporary profile...');
+				// User not authenticated, save to registration context and continue registration
+				console.log('User not authenticated, saving to registration context...');
 				
-				try {
-					const tempProfileData = {
-						full_name: formData.fullName.trim(),
-						user_type: 'job_seeker' as const,
-						skills_expertise: formData.skills.trim() || undefined,
-						professional_bio: formData.bio.trim() || undefined,
-						profile_image: profileImage || undefined,
-					};
+				// Update registration data in context
+				updateRegistrationData({
+					fullName: formData.fullName.trim(),
+					userType: 'job_seeker',
+					skills: formData.skills.trim() || undefined,
+					bio: formData.bio.trim() || undefined,
+					profileImage: profileImage || undefined,
+				});
 
-					console.log('Creating temporary profile with data:', tempProfileData);
-					const tempProfile = await DatabaseService.createTempProfile(tempProfileData);
-					console.log('Temporary profile created:', tempProfile);
-
-					// Store temp profile ID for the next step
-					localStorage.setItem('tempProfileId', tempProfile.id);
-					
-					// Navigate to confirm page with temp profile ID
-					router.push(`/register/confirm?tempProfileId=${tempProfile.id}`);
-					
-				} catch (error) {
-					console.error('Error creating temporary profile:', error);
-					setErrors(prev => ({...prev, form: "Failed to save profile data. Please try again."}));
-					return;
-				}
+				console.log('Registration data saved to context');
+				
+				// Navigate to confirm page
+				router.push('/register/confirm');
 			}
 		} catch (err) {
 			console.error('Form submission error:', err);
@@ -280,40 +241,27 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 	};
 
 	const handleSkip = async () => {
-		console.log('Skip button clicked, creating minimal temp profile...');
+		console.log('Skip button clicked, saving minimal data...');
 		setIsSubmitting(true);
 		
 		try {
-			// Create minimal temporary profile
-			const tempProfileData = {
-				full_name: formData.fullName.trim() || "User",
-				user_type: 'job_seeker' as const,
-				skills_expertise: undefined,
-				professional_bio: undefined,
-				profile_image: undefined,
-			};
+			// Save minimal data to registration context
+			updateRegistrationData({
+				fullName: formData.fullName.trim() || "User",
+				userType: 'job_seeker',
+				skills: undefined,
+				bio: undefined,
+				profileImage: undefined,
+			});
 
-			const tempProfile = await DatabaseService.createTempProfile(tempProfileData);
-			console.log('Minimal temporary profile created:', tempProfile);
-
-			// Store temp profile ID for the next step
-			localStorage.setItem('tempProfileId', tempProfile.id);
+			console.log('Minimal registration data saved to context');
 			
-			// Navigate to confirm page with temp profile ID
-			router.push(`/register/confirm?tempProfileId=${tempProfile.id}`);
+			// Navigate to confirm page
+			router.push('/register/confirm');
 			
 		} catch (error) {
-			console.error('Error creating temporary profile:', error);
-			// Fallback to old method if temp profile creation fails
-			const params = new URLSearchParams({
-				fullName: formData.fullName.trim() || "User",
-				skills: "",
-				bio: "",
-				profile_image: "",
-				role: "job_seeker"
-			});
-			
-			router.push(`/register/confirm?${params.toString()}`);
+			console.error('Error saving registration data:', error);
+			setErrors(prev => ({...prev, form: "Failed to save data. Please try again."}));
 		} finally {
 			setIsSubmitting(false);
 		}

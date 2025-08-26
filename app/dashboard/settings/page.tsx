@@ -1,10 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { DatabaseService } from "@/lib/database";
-import { getMockUserRatingStats } from "@/lib/mockReviewsData";
 import { useRouter } from "next/navigation";
-import axios from "axios";
 import {
     Edit3,
     Phone,
@@ -18,7 +15,6 @@ import {
     Palette,
     User,
     Award,
-    Star,
     Check,
     X,
     AlertCircle,
@@ -51,7 +47,6 @@ export default function SettingsPage() {
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
-    const [ratingStats, setRatingStats] = useState<any>(null);
     const [saving, setSaving] = useState<{[key: string]: boolean}>({});
     const [savedFields, setSavedFields] = useState<{[key: string]: boolean}>({});
     const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
@@ -71,19 +66,6 @@ export default function SettingsPage() {
                 .eq("id", user.id)
                 .single();
             setProfile(data);
-            
-            // Fetch rating stats (using mock data for now)
-            try {
-                // const stats = await DatabaseService.getUserRatingStats(user.id);
-                const stats = await getMockUserRatingStats(user.id);
-                setRatingStats(stats);
-            } catch (error) {
-                console.error('Error fetching rating stats:', error);
-                setRatingStats({
-                    average_rating: 0,
-                    total_reviews: 0
-                });
-            }
             
             // Set skills based on user type
             const skillsValue = data?.user_type === "job_seeker" 
@@ -107,8 +89,15 @@ export default function SettingsPage() {
 
     // Helper to update profile with optimistic updates
     const updateProfile = useCallback(async (updates: Partial<typeof profile>, fieldKey?: string) => {
+        console.log('🔄 updateProfile called with:', updates);
+        
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+            console.error('❌ updateProfile: No authenticated user found');
+            return { error: new Error('No authenticated user found') };
+        }
+
+        console.log('✅ updateProfile: User authenticated:', user.id);
 
         // Set saving state for specific field
         if (fieldKey) {
@@ -120,12 +109,15 @@ export default function SettingsPage() {
         setProfile((prev: any) => ({ ...prev, ...updates }));
 
         try {
+            console.log('📡 updateProfile: Making database update...');
             const { data, error } = await supabase
                 .from("users")
                 .update(updates)
                 .eq("id", user.id)
                 .select()
                 .single();
+
+            console.log('📊 updateProfile: Database result:', { data, error });
 
             if (error) throw error;
 
@@ -149,7 +141,11 @@ export default function SettingsPage() {
                     duration: 2000
                 });
             }
+            
+            console.log('✅ updateProfile: Success');
+            return { error: null };
         } catch (error: any) {
+            console.error('❌ updateProfile: Error:', error);
             // Revert optimistic update on error
             setProfile(previousProfile);
             
@@ -159,6 +155,8 @@ export default function SettingsPage() {
                 variant: "destructive",
                 duration: 3000
             });
+            
+            return { error };
         } finally {
             if (fieldKey) {
                 setSaving(prev => ({ ...prev, [fieldKey]: false }));
@@ -349,32 +347,136 @@ export default function SettingsPage() {
     };
 
     // Profile image upload logic
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setImageFile(e.target.files[0]);
-            setImagePreview(URL.createObjectURL(e.target.files[0]));
+            const file = e.target.files[0];
+            
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                toast({ 
+                    title: "File too large", 
+                    description: "Please select an image smaller than 5MB",
+                    variant: "destructive" 
+                });
+                return;
+            }
+            
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                toast({ 
+                    title: "Invalid file type", 
+                    description: "Please select an image file (JPG, PNG, or WEBP)",
+                    variant: "destructive" 
+                });
+                return;
+            }
+            
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+            
+            // Automatically upload the image
+            console.log('🖼️ Auto-uploading image after selection...');
+            await uploadProfileImageWithFile(file);
         }
+    };
+
+    const uploadProfileImageWithFile = async (file: File) => {
+        setUploading(true);
+        try {
+            console.log('🖼️ Starting profile image upload...');
+            
+            // Create FormData for file upload
+            const formData = new FormData();
+            formData.append('file', file);
+
+            console.log('📤 Uploading file to API...');
+            // Upload to our API endpoint
+            const response = await fetch('/api/upload-profile-image', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const result = await response.json();
+            console.log('📥 Upload API response:', result);
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Upload failed');
+            }
+
+            if (result.success) {
+                console.log('✅ File uploaded successfully, URL:', result.url);
+                console.log('💾 Updating profile in database...');
+                
+                const updateResult = await updateProfile({ profile_image: result.url });
+                console.log('📊 Profile update result:', updateResult);
+                
+                if (updateResult && updateResult.error) {
+                    throw new Error(`Profile update failed: ${updateResult.error.message}`);
+                }
+                
+                console.log('✅ Profile image updated successfully!');
+                toast({ title: "✅ Profile image updated!" });
+                setImageFile(null);
+                setImagePreview(null);
+            }
+        } catch (err: any) {
+            console.error('❌ Profile image upload error:', err);
+            toast({ 
+                title: "Image upload failed", 
+                description: err.message, 
+                variant: "destructive" 
+            });
+        }
+        setUploading(false);
     };
 
     const uploadProfileImage = async () => {
         if (!imageFile) return;
         setUploading(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("No user");
-            const ext = imageFile.name.split('.').pop();
-            const filePath = `profile-images/${user.id}-${Date.now()}.${ext}`;
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, imageFile, { upsert: true });
-            if (uploadError) throw uploadError;
-            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-            await updateProfile({ profile_image: publicUrl });
-            toast({ title: "Profile image updated!" });
-            setImageFile(null);
-            setImagePreview(null);
+            console.log('🖼️ Starting profile image upload...');
+            
+            // Create FormData for file upload
+            const formData = new FormData();
+            formData.append('file', imageFile);
+
+            console.log('📤 Uploading file to API...');
+            // Upload to our API endpoint
+            const response = await fetch('/api/upload-profile-image', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const result = await response.json();
+            console.log('📥 Upload API response:', result);
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Upload failed');
+            }
+
+            if (result.success) {
+                console.log('✅ File uploaded successfully, URL:', result.url);
+                console.log('💾 Updating profile in database...');
+                
+                const updateResult = await updateProfile({ profile_image: result.url });
+                console.log('📊 Profile update result:', updateResult);
+                
+                if (updateResult && updateResult.error) {
+                    throw new Error(`Profile update failed: ${updateResult.error.message}`);
+                }
+                
+                console.log('✅ Profile image updated successfully!');
+                toast({ title: "Profile image updated!" });
+                setImageFile(null);
+                setImagePreview(null);
+            }
         } catch (err: any) {
-            toast({ title: "Image upload failed", description: err.message, variant: "destructive" });
+            console.error('❌ Profile image upload error:', err);
+            toast({ 
+                title: "Image upload failed", 
+                description: err.message, 
+                variant: "destructive" 
+            });
         }
         setUploading(false);
     };
@@ -432,13 +534,14 @@ export default function SettingsPage() {
                                             </AvatarFallback>
                                         </Avatar>
                                         {editProfile && (
-                                            <label className={styles.cameraButton}>
-                                                <Camera size={16} />
+                                            <label className={`${styles.cameraButton} ${uploading ? styles.uploading : ''}`}>
+                                                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera size={16} />}
                                                 <Input
                                                     type="file"
                                                     accept="image/*"
                                                     className="hidden"
                                                     onChange={handleImageChange}
+                                                    disabled={uploading}
                                                 />
                                             </label>
                                         )}
@@ -446,15 +549,11 @@ export default function SettingsPage() {
                                     <div className={styles.avatarInfo}>
                                         <h3>Profile Picture</h3>
                                         <p>JPG, PNG, or WEBP. Max 5MB.</p>
-                                        {editProfile && imageFile && (
-                                            <Button
-                                                onClick={uploadProfileImage}
-                                                disabled={uploading}
-                                                className="mt-2"
-                                            >
-                                                {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                Save Image
-                                            </Button>
+                                        {uploading && (
+                                            <p className="text-sm text-blue-600 mt-2">
+                                                <Loader2 className="inline h-4 w-4 animate-spin mr-2" />
+                                                Uploading image...
+                                            </p>
                                         )}
                                     </div>
                                 </div>
@@ -494,24 +593,6 @@ export default function SettingsPage() {
                                     ) : (
                                         <h2>{profile.full_name}</h2>
                                     )}
-                                    <div className={styles.rating}>
-                                        <div className={styles.stars}>
-                                            {[1, 2, 3, 4, 5].map((star) => (
-                                                <Star 
-                                                    key={star} 
-                                                    size={16} 
-                                                    className={
-                                                        star <= (ratingStats?.average_rating || 0) 
-                                                            ? styles.starFilled 
-                                                            : styles.starEmpty
-                                                    } 
-                                                />
-                                            ))}
-                                        </div>
-                                        <span className={styles.ratingCount}>
-                                            ({ratingStats?.total_reviews || 0} reviews)
-                                        </span>
-                                    </div>
                                 </div>
                                 <div className={styles.bioSection}>
                                     <h4>Bio</h4>

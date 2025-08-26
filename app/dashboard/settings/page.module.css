@@ -180,30 +180,6 @@
   margin: 0;
 }
 
-.rating {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.stars {
-  display: flex;
-  gap: 2px;
-}
-
-.starFilled {
-  color: #fbbf24;
-}
-
-.starEmpty {
-  color: #d1d5db;
-}
-
-.ratingCount {
-  font-size: 14px;
-  color: #6b7280;
-}
-
 .bioSection h4 {
   font-size: 16px;
   font-weight: 600;

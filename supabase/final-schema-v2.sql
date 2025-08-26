@@ -29,13 +29,6 @@ do $$ begin
     drop policy if exists "Users can view own saved contacts" on public.saved_contacts;
     drop policy if exists "Users can manage own saved contacts" on public.saved_contacts;
     
-
-    
-    -- Temp profiles policies
-    drop policy if exists "Anyone can create temp profiles" on public.temp_profiles;
-    drop policy if exists "Anyone can read temp profiles by ID" on public.temp_profiles;
-    drop policy if exists "Anyone can update temp profiles" on public.temp_profiles;
-    
     -- Storage policies
     drop policy if exists "Public read access for profile images" on storage.objects;
     drop policy if exists "Users can upload their own profile images" on storage.objects;
@@ -50,13 +43,11 @@ end $$;
 
 -- Drop tables in dependency order (if they exist)
 drop table if exists public.saved_contacts cascade;
-drop table if exists public.temp_profiles cascade;
 drop table if exists public.users cascade;
 
 -- Drop functions (if they exist)
 drop function if exists public.handle_new_user() cascade;
 drop function if exists public.update_updated_at_column() cascade;
-drop function if exists public.transfer_temp_profile_to_user(uuid, uuid) cascade;
 
 -- === TABLE CREATION SECTION ===
 
@@ -94,29 +85,11 @@ create table public.saved_contacts (
     unique (user_id, saved_contact_id) -- prevent duplicates
 );
 
--- TEMPORARY PROFILES TABLE FOR REGISTRATION FLOW
-create table public.temp_profiles (
-    id uuid default gen_random_uuid() primary key,
-    full_name text constraint temp_full_name_length check (char_length(full_name) <= 100),
-    user_type text check (user_type in ('job_seeker', 'hiring')) not null,
-    skills_expertise text, -- comma-separated, each skill max 50 chars
-    required_skills text,  -- comma-separated, each skill max 50 chars
-    professional_bio text constraint temp_bio_length check (char_length(professional_bio) <= 1000),
-    profile_image text,
-    phone text constraint temp_phone_length check (char_length(phone) <= 20),
-    linkedin text constraint temp_linkedin_length check (char_length(linkedin) <= 200),
-    instagram text constraint temp_instagram_length check (char_length(instagram) <= 100),
-    website text constraint temp_website_length check (char_length(website) <= 300),
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-    expires_at timestamp with time zone default (timezone('utc'::text, now()) + interval '24 hours') not null
-);
-
 -- === ROW LEVEL SECURITY SETUP ===
 
 -- Enable Row Level Security (RLS)
 alter table public.users enable row level security;
 alter table public.saved_contacts enable row level security;
-alter table public.temp_profiles enable row level security;
 
 -- === RLS POLICIES FOR USERS TABLE ===
 
@@ -146,20 +119,6 @@ create policy "Users can view own saved contacts" on public.saved_contacts
 create policy "Users can manage own saved contacts" on public.saved_contacts
     for all using (auth.uid() = user_id);
 
--- === RLS POLICIES FOR TEMP PROFILES TABLE ===
-
--- Anyone can create temporary profiles (for registration)
-create policy "Anyone can create temp profiles" on public.temp_profiles
-    for insert with check (true);
-
--- Anyone can read temp profiles by ID (for registration flow)
-create policy "Anyone can read temp profiles by ID" on public.temp_profiles
-    for select using (true);
-
--- Anyone can update temp profiles (for registration flow)
-create policy "Anyone can update temp profiles" on public.temp_profiles
-    for update using (true);
-
 -- === FUNCTIONS AND TRIGGERS ===
 
 -- Function to handle new user registration
@@ -170,13 +129,21 @@ begin
         id, 
         email, 
         full_name, 
-        user_type
+        user_type,
+        profile_image,
+        skills_expertise,
+        required_skills,
+        professional_bio
     )
     values (
         new.id, 
         coalesce(new.email, ''), 
         coalesce(new.raw_user_meta_data->>'full_name', ''),
-        coalesce(new.raw_user_meta_data->>'user_type', 'job_seeker')
+        coalesce(new.raw_user_meta_data->>'user_type', 'job_seeker'),
+        new.raw_user_meta_data->>'profile_image',
+        new.raw_user_meta_data->>'skills',
+        new.raw_user_meta_data->>'skills_needed',
+        new.raw_user_meta_data->>'bio'
     );
     return new;
 exception
@@ -205,41 +172,6 @@ $$ language plpgsql;
 create trigger update_users_updated_at
     before update on public.users
     for each row execute procedure public.update_updated_at_column();
-
--- Function to transfer temp profile to permanent user profile
-create or replace function public.transfer_temp_profile_to_user(
-    temp_profile_id uuid,
-    user_id uuid
-) returns void as $$
-declare
-    temp_data record;
-begin
-    -- Get the temporary profile data
-    select * into temp_data from public.temp_profiles where id = temp_profile_id;
-    
-    if not found then
-        raise exception 'Temporary profile not found';
-    end if;
-    
-    -- Update the user's profile with temp data
-    update public.users set
-        full_name = coalesce(temp_data.full_name, full_name),
-        user_type = coalesce(temp_data.user_type, user_type),
-        skills_expertise = coalesce(temp_data.skills_expertise, skills_expertise),
-        required_skills = coalesce(temp_data.required_skills, required_skills),
-        professional_bio = coalesce(temp_data.professional_bio, professional_bio),
-        profile_image = coalesce(temp_data.profile_image, profile_image),
-        phone = coalesce(temp_data.phone, phone),
-        linkedin = coalesce(temp_data.linkedin, linkedin),
-        instagram = coalesce(temp_data.instagram, instagram),
-        website = coalesce(temp_data.website, website),
-        updated_at = now()
-    where id = user_id;
-    
-    -- Clean up the temporary profile
-    delete from public.temp_profiles where id = temp_profile_id;
-end;
-$$ language plpgsql security definer;
 
 -- === VALIDATION FUNCTIONS ===
 
@@ -354,18 +286,6 @@ do $$ begin
         alter table public.users add constraint valid_website_url check (validate_url(website));
     end if;
     
-    -- Add skills validation constraints to temp_profiles table
-    if not exists (select 1 from information_schema.check_constraints where constraint_name = 'temp_valid_skills_expertise') then
-        alter table public.temp_profiles add constraint temp_valid_skills_expertise check (validate_skills(skills_expertise));
-    end if;
-    
-    if not exists (select 1 from information_schema.check_constraints where constraint_name = 'temp_valid_required_skills') then
-        alter table public.temp_profiles add constraint temp_valid_required_skills check (validate_skills(required_skills));
-    end if;
-    
-    if not exists (select 1 from information_schema.check_constraints where constraint_name = 'temp_valid_website_url') then
-        alter table public.temp_profiles add constraint temp_valid_website_url check (validate_url(website));
-    end if;
 exception when others then
     raise warning 'Some validation constraints may already exist: %', sqlerrm;
 end $$;
@@ -382,10 +302,6 @@ create index if not exists idx_users_email on public.users(email);
 create index if not exists idx_saved_contacts_user_id on public.saved_contacts(user_id);
 create index if not exists idx_saved_contacts_saved_contact_id on public.saved_contacts(saved_contact_id);
 
--- Index for faster temp profile lookups
-create index if not exists idx_temp_profiles_created_at on public.temp_profiles(created_at);
-create index if not exists idx_temp_profiles_expires_at on public.temp_profiles(expires_at);
-
 -- === VERIFICATION QUERIES ===
 
 -- Check if tables exist and have correct structure
@@ -393,7 +309,6 @@ do $$ begin
     raise notice 'Tables created successfully:';
     raise notice '- users: % columns', (select count(*) from information_schema.columns where table_name = 'users' and table_schema = 'public');
     raise notice '- saved_contacts: % columns', (select count(*) from information_schema.columns where table_name = 'saved_contacts' and table_schema = 'public');
-    raise notice '- temp_profiles: % columns', (select count(*) from information_schema.columns where table_name = 'temp_profiles' and table_schema = 'public');
 end $$;
 
 -- Check if RLS is enabled

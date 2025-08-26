@@ -95,13 +95,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (pendingProfile?.profile_image) {
+            console.log('🖼️ Adding profile image from pending profile:', pendingProfile.profile_image);
             optionalFields.profile_image = pendingProfile.profile_image;
+          } else {
+            console.log('❌ No profile image in pending profile:', pendingProfile?.profile_image);
           }
 
           // Default plan type
           optionalFields.plan_type = 'Free';
           
           const finalProfileData = { ...profileData, ...optionalFields };
+          
+          console.log('🏗️ Creating profile with final data:', finalProfileData);
+          console.log('🖼️ Profile image in final data:', finalProfileData.profile_image);
           
           console.log('Creating profile with data:', finalProfileData);
           
@@ -249,20 +255,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateProfile = async (updates: Partial<UserProfile>) => {
     try {
       if (!user) {
+        console.error('❌ updateProfile: No user logged in');
         return { error: new Error('No user logged in') };
       }
 
-      const { error } = await supabase
+      console.log('🔄 updateProfile: Updating user profile...', {
+        userId: user.id,
+        updates: updates
+      });
+
+      const { data, error } = await supabase
         .from('users')
         .update(updates)
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .select();
 
-      if (!error) {
-        await refreshProfile();
+      console.log('📊 updateProfile: Database update result:', { data, error });
+
+      if (error) {
+        console.error('❌ updateProfile: Database error:', error);
+        return { error };
       }
 
-      return { error };
+      console.log('✅ updateProfile: Successfully updated profile');
+      await refreshProfile();
+
+      return { error: null };
     } catch (error) {
+      console.error('❌ updateProfile: Unexpected error:', error);
       return { error };
     }
   };

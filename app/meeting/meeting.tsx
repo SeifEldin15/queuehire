@@ -7,7 +7,6 @@ import {
     Video,
     VideoOff,
     PhoneOff,
-    Star,
     Heart,
     Flag,
     User,
@@ -37,8 +36,6 @@ interface Contact {
     experience: string;
     skills: string[];
     bio: string;
-    rating: number;
-    totalRatings: number;
     joinedDate: string;
 }
 
@@ -58,10 +55,8 @@ export default function MeetingPage() {
 
     // Modal states
     const [showEndCallModal, setShowEndCallModal] = useState(false);
-    const [showRatingModal, setShowRatingModal] = useState(false);
     const [showSaveContactModal, setShowSaveContactModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
-    const [rating, setRating] = useState(0);
     const [reportReason, setReportReason] = useState("");
 
     // Refs
@@ -87,8 +82,6 @@ export default function MeetingPage() {
             "GraphQL",
         ],
         bio: "Passionate full-stack developer with expertise in modern web technologies. I love building scalable applications and mentoring junior developers. Always excited to work on innovative projects that make a real impact.",
-        rating: 4.8,
-        totalRatings: 24,
         joinedDate: "March 2023",
     };
 
@@ -159,14 +152,7 @@ export default function MeetingPage() {
     const confirmEndCall = () => {
         setCallStatus("ended");
         setShowEndCallModal(false);
-        setShowRatingModal(true);
-    };
-
-    const handleRatingSubmit = () => {
-        if (rating > 0) {
-            setShowRatingModal(false);
-            router.push("/dashboard");
-        }
+        router.push("/dashboard");
     };
 
     const handleSaveContact = () => {
@@ -193,20 +179,6 @@ export default function MeetingPage() {
         return `${mins.toString().padStart(2, "0")}:${secs
             .toString()
             .padStart(2, "0")}`;
-    };
-
-    const renderStars = (rating: number) => {
-        return Array.from({ length: 5 }, (_, i) => (
-            <Star
-                key={i}
-                size={14}
-                className={
-                    i < Math.floor(rating)
-                        ? styles.starFilled
-                        : styles.starEmpty
-                }
-            />
-        ));
     };
 
     return (
@@ -297,10 +269,6 @@ export default function MeetingPage() {
                             <p className={styles.position}>
                                 {matchedContact.position}
                             </p>
-                            <div className={styles.rating}>
-                                {renderStars(matchedContact.rating)}
-                                <span>({matchedContact.totalRatings})</span>
-                            </div>
                         </div>
                     </div>
 
@@ -445,42 +413,6 @@ export default function MeetingPage() {
                                 onClick={confirmEndCall}
                             >
                                 End Call
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showRatingModal && (
-                <div className={styles.modalOverlay}>
-                    <div className={styles.modal}>
-                        <div className={styles.modalIcon}>
-                            <Star size={32} />
-                        </div>
-                        <h3>Rate Your Experience</h3>
-                        <p>How was your meeting with {matchedContact.name}?</p>
-                        <div className={styles.ratingContainer}>
-                            {[1, 2, 3, 4, 5].map((star) => (
-                                <button
-                                    key={star}
-                                    className={`${styles.ratingButton} ${
-                                        star <= rating ? styles.selected : ""
-                                    }`}
-                                    onClick={() => setRating(star)}
-                                >
-                                    <Star size={28} />
-                                </button>
-                            ))}
-                        </div>
-                        <div className={styles.modalActions}>
-                            <button
-                                className={`${styles.confirmButton} ${
-                                    rating === 0 ? styles.disabled : ""
-                                }`}
-                                onClick={handleRatingSubmit}
-                                disabled={rating === 0}
-                            >
-                                Submit Rating
                             </button>
                         </div>
                     </div>
