@@ -65,7 +65,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 			const formData = new FormData();
 			formData.append('file', file);
 
-			console.log('Uploading image to traditional upload endpoint...');
+			// console.log('Uploading image to traditional upload endpoint...');
 
 			// Upload to our API endpoint
 			const response = await fetch('/api/upload-profile-image', {
@@ -80,7 +80,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 			}
 
 			if (result.success) {
-				console.log('Image uploaded successfully:', result.url);
+				// console.log('Image uploaded successfully:', result.url);
 				setProfileImage(result.url);
 				
 				// Update registration context
@@ -148,24 +148,24 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 	};
 
 	const handleProceed = async () => {
-		console.log('Complete Profile button clicked!');
-		console.log('Form data:', formData);
-		console.log('Current user:', user);
-		console.log('Current profile:', profile);
+		// console.log('Complete Profile button clicked!');
+		// console.log('Form data:', formData);
+		// console.log('Current user:', user);
+		// console.log('Current profile:', profile);
 		
 		if (!validateForm()) {
-			console.log('Form validation failed');
+			// console.log('Form validation failed');
 			return;
 		}
 
-		console.log('Form validation passed, proceeding...');
+		// console.log('Form validation passed, proceeding...');
 		setIsSubmitting(true);
 		
 		try {
 			// If user is already authenticated, save directly to database
 			if (user) {
-				console.log('User is authenticated, saving profile to database...');
-				console.log('Current profileImage state:', profileImage);
+				// console.log('User is authenticated, saving profile to database...');
+				// console.log('Current profileImage state:', profileImage);
 				
 				// First, update the auth user metadata for full name
 				const { error: authError } = await supabase.auth.updateUser({
@@ -185,8 +185,8 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 					updated_at: new Date().toISOString()
 				};
 
-				console.log('Profile update data:', profileUpdateData);
-				console.log('Profile image being saved:', profileUpdateData.profile_image);
+				// console.log('Profile update data:', profileUpdateData);
+				// console.log('Profile image being saved:', profileUpdateData.profile_image);
 
 				const { error } = await supabase
 					.from('users')
@@ -199,7 +199,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 					return;
 				}
 
-				console.log('Profile updated successfully');
+				// console.log('Profile updated successfully');
 				
 				// Refresh the profile in context
 				await refreshProfile();
@@ -208,7 +208,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 				router.push('/dashboard');
 			} else {
 				// User not authenticated, save to registration context and continue registration
-				console.log('User not authenticated, saving to registration context...');
+				// console.log('User not authenticated, saving to registration context...');
 				
 				// Update registration data in context
 				updateRegistrationData({
@@ -219,7 +219,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 					profileImage: profileImage || undefined,
 				});
 
-				console.log('Registration data saved to context');
+				// console.log('Registration data saved to context');
 				
 				// Navigate to confirm page
 				router.push('/register/confirm');

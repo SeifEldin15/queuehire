@@ -36,7 +36,7 @@ export default function LoginPage() {
             const { error: signInError } = await signIn(email, password);
             
             if (signInError) {
-                // console.log("Login error:", signInError);
+                // // console.log("Login error:", signInError);
                 if (
                     signInError.message?.toLowerCase().includes("email not confirmed") ||
                     signInError.message?.toLowerCase().includes("confirm") ||
@@ -57,7 +57,7 @@ export default function LoginPage() {
                     const pendingProfile: PendingProfile = JSON.parse(pendingProfileStr);
                     
                     if (pendingProfile.fullName) {
-                        // console.log("Completing profile with pending data");
+                        // // console.log("Completing profile with pending data");
                         
                         await updateProfile({
                             user_type: pendingProfile.role,

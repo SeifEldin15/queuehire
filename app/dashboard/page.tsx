@@ -50,24 +50,24 @@ export default function DashboardPage() {
                 setLoading(true);
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) {
-                    // console.log("No user found, redirecting to login");
+                    // // console.log("No user found, redirecting to login");
                     router.replace("/login");
                     return;
                 }
 
-                // console.log("User authenticated in dashboard:", user.id);
-                // console.log("Full user object:", user);  // Let's see the complete user object
+                // // console.log("User authenticated in dashboard:", user.id);
+                // // console.log("Full user object:", user);  // Let's see the complete user object
 
                 // Check for pendingProfile in localStorage
                 const pendingProfileStr = localStorage.getItem("pendingProfile");
-                // console.log("Dashboard - pendingProfile in localStorage:", pendingProfileStr);
+                // // console.log("Dashboard - pendingProfile in localStorage:", pendingProfileStr);
 
                 const data = await DatabaseService.getUserProfile(user.id);
-                // console.log("Profile data in dashboard:", data);
+                // // console.log("Profile data in dashboard:", data);
                 
                 if (!data) {
                     // Try to create a basic profile if no profile exists
-                    // console.log("No profile found, attempting to create one");
+                    // // console.log("No profile found, attempting to create one");
                     const pendingProfile = JSON.parse(localStorage.getItem("pendingProfile") || "{}");
                     
                     if (pendingProfile.fullName) {
@@ -194,17 +194,17 @@ export default function DashboardPage() {
 
             // Set stage transitions
             timeoutsRef.current.found = setTimeout(() => {
-                // console.log("Setting stage to found");
+                // // console.log("Setting stage to found");
                 setQueueStage("found");
             }, 8000);
             
             timeoutsRef.current.connecting = setTimeout(() => {
-                // console.log("Setting stage to connecting");
+                // // console.log("Setting stage to connecting");
                 setQueueStage("connecting");
             }, 8500);
             
             timeoutsRef.current.redirect = setTimeout(() => {
-                // console.log("Redirecting to meeting");
+                // // console.log("Redirecting to meeting");
                 router.push("/meeting/cxriq7kifsi");
             }, 9500);
         } else if (queueStage === "idle") {
@@ -253,13 +253,13 @@ export default function DashboardPage() {
     };
 
     const handleQueueUp = () => {
-        // console.log("Starting queue");
+        // // console.log("Starting queue");
         setQueueStage("searching");
         setSearchTime(0);
     };
 
     const handleCancelQueue = () => {
-        // console.log("Cancelling queue");
+        // // console.log("Cancelling queue");
         // Clear all timeouts when cancelling
         if (timeoutsRef.current.interval) clearInterval(timeoutsRef.current.interval);
         if (timeoutsRef.current.found) clearTimeout(timeoutsRef.current.found);

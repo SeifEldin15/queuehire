@@ -28,7 +28,7 @@ export default function SeekerPage() {
 	// Load existing profile data if user is authenticated
 	useEffect(() => {
 		if (profile) {
-			console.log('Available profile fields:', Object.keys(profile));
+			// console.log('Available profile fields:', Object.keys(profile));
 			setFormData({
 				fullName: profile.full_name || "",
 				skills: profile.skills_expertise || "",
@@ -67,7 +67,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 			const formData = new FormData();
 			formData.append('file', file);
 
-			console.log('Uploading image to traditional upload endpoint...');
+			// console.log('Uploading image to traditional upload endpoint...');
 
 			// Upload to our API endpoint
 			const response = await fetch('/api/upload-profile-image', {
@@ -82,7 +82,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 			}
 
 			if (result.success) {
-				console.log('Image uploaded successfully:', result.url);
+				// console.log('Image uploaded successfully:', result.url);
 				setProfileImage(result.url);
 				
 				// Update registration context
@@ -124,7 +124,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 	};
 
 	const validateForm = () => {
-		console.log('Validating form with data:', formData);
+		// console.log('Validating form with data:', formData);
 		const newErrors: { [key: string]: string } = {};
 
 		// Validate full name
@@ -146,30 +146,30 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 			newErrors.bio = "Bio must be less than 1000 characters";
 		}
 
-		console.log('Validation errors:', newErrors);
+		// console.log('Validation errors:', newErrors);
 		setErrors(newErrors);
 		return Object.keys(newErrors).length === 0;
 	};
 
 	const handleProceed = async () => {
-		console.log('Complete Profile button clicked!');
+		// console.log('Complete Profile button clicked!');
 		
 		if (!validateForm()) {
-			console.log('Form validation failed');
+			// console.log('Form validation failed');
 			return;
 		}
 
-		console.log('Form validation passed, proceeding...');
+		// console.log('Form validation passed, proceeding...');
 		setIsSubmitting(true);
 		
 		try {
 			// If user is already authenticated, save directly to database
 			if (user) {
-				console.log('User is authenticated, saving profile to database...');
-				console.log('Current profileImage state:', profileImage);
+				// console.log('User is authenticated, saving profile to database...');
+				// console.log('Current profileImage state:', profileImage);
 				
 				// Skip auth metadata update for now - focus on profile data
-				console.log('Step 1: Skipping auth metadata update (causing delays)');
+				// console.log('Step 1: Skipping auth metadata update (causing delays)');
 
 				// Update the profile data in public.users table
 				const profileUpdateData = {
@@ -180,9 +180,9 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 					user_type: "job_seeker" // This must match the schema constraint exactly
 				};
 
-				console.log('Step 2: Updating user profile with data:', profileUpdateData);
-				console.log('Profile image being saved:', profileUpdateData.profile_image);
-				console.log('User ID:', user.id);
+				// console.log('Step 2: Updating user profile with data:', profileUpdateData);
+				// console.log('Profile image being saved:', profileUpdateData.profile_image);
+				// console.log('User ID:', user.id);
 
 				const { data, error } = await supabase
 					.from('users')
@@ -190,8 +190,8 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 					.eq('id', user.id)
 					.select(); // Return the updated data
 
-				console.log('Step 3: Database update completed');
-				console.log('Database update result:', { data, error, userId: user.id });
+				// console.log('Step 3: Database update completed');
+				// console.log('Database update result:', { data, error, userId: user.id });
 
 				if (error) {
 					console.error('Profile update error:', error);
@@ -207,7 +207,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 					return;
 				}
 
-				console.log('Profile updated successfully, updated data:', data);
+				// console.log('Profile updated successfully, updated data:', data);
 				
 				// Refresh the profile in context
 				await refreshProfile();
@@ -216,7 +216,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 				router.push('/dashboard');
 			} else {
 				// User not authenticated, save to registration context and continue registration
-				console.log('User not authenticated, saving to registration context...');
+				// console.log('User not authenticated, saving to registration context...');
 				
 				// Update registration data in context
 				updateRegistrationData({
@@ -227,7 +227,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 					profileImage: profileImage || undefined,
 				});
 
-				console.log('Registration data saved to context');
+				// console.log('Registration data saved to context');
 				
 				// Navigate to confirm page
 				router.push('/register/confirm');
@@ -241,7 +241,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 	};
 
 	const handleSkip = async () => {
-		console.log('Skip button clicked, saving minimal data...');
+		// console.log('Skip button clicked, saving minimal data...');
 		setIsSubmitting(true);
 		
 		try {
@@ -254,7 +254,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 				profileImage: undefined,
 			});
 
-			console.log('Minimal registration data saved to context');
+			// console.log('Minimal registration data saved to context');
 			
 			// Navigate to confirm page
 			router.push('/register/confirm');

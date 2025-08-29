@@ -85,14 +85,14 @@ export default function SettingsPage() {
 
     // Helper to update profile with optimistic updates and sidebar refresh
     const updateProfile = useCallback(async (updates: any, fieldKey?: string) => {
-        // console.log('🔄 updateProfile called with:', updates);
+        // // console.log('🔄 updateProfile called with:', updates);
         
         if (!user) {
             console.error('❌ updateProfile: No authenticated user found');
             return { error: new Error('No authenticated user found') };
         }
 
-        // console.log('✅ updateProfile: User authenticated:', user.id);
+        // // console.log('✅ updateProfile: User authenticated:', user.id);
 
         // Set saving state for specific field
         if (fieldKey) {
@@ -100,12 +100,12 @@ export default function SettingsPage() {
         }
 
         try {
-            // console.log('📡 updateProfile: Making database update...');
+            // // console.log('📡 updateProfile: Making database update...');
             
             // Use the auth context update method which will refresh the sidebar
             const result = await authUpdateProfile(updates);
             
-            // console.log('📊 updateProfile: Database result:', result);
+            // // console.log('📊 updateProfile: Database result:', result);
 
             if (result.error) throw result.error;
 
@@ -125,7 +125,7 @@ export default function SettingsPage() {
                 duration: 2000
             });
             
-            // console.log('✅ updateProfile: Success');
+            // // console.log('✅ updateProfile: Success');
             return { error: null };
         } catch (error: any) {
             console.error('❌ updateProfile: Error:', error);
@@ -358,7 +358,7 @@ export default function SettingsPage() {
             setImagePreview(URL.createObjectURL(file));
             
             // Automatically upload the image
-            // console.log('🖼️ Auto-uploading image after selection...');
+            // // console.log('🖼️ Auto-uploading image after selection...');
             await uploadProfileImageWithFile(file);
         }
     };
@@ -366,13 +366,13 @@ export default function SettingsPage() {
     const uploadProfileImageWithFile = async (file: File) => {
         setUploading(true);
         try {
-            // console.log('🖼️ Starting profile image upload...');
+            // // console.log('🖼️ Starting profile image upload...');
             
             // Create FormData for file upload
             const formData = new FormData();
             formData.append('file', file);
 
-            // console.log('📤 Uploading file to API...');
+            // // console.log('📤 Uploading file to API...');
             // Upload to our API endpoint
             const response = await fetch('/api/upload-profile-image', {
                 method: 'POST',
@@ -380,24 +380,24 @@ export default function SettingsPage() {
             });
 
             const result = await response.json();
-            // console.log('📥 Upload API response:', result);
+            // // console.log('📥 Upload API response:', result);
 
             if (!response.ok) {
                 throw new Error(result.error || 'Upload failed');
             }
 
             if (result.success) {
-                // console.log('✅ File uploaded successfully, URL:', result.url);
-                // console.log('💾 Updating profile in database...');
+                // // console.log('✅ File uploaded successfully, URL:', result.url);
+                // // console.log('💾 Updating profile in database...');
                 
                 const updateResult = await updateProfile({ profile_image: result.url });
-                // console.log('📊 Profile update result:', updateResult);
+                // // console.log('📊 Profile update result:', updateResult);
                 
                 if (updateResult && updateResult.error) {
                     throw new Error(`Profile update failed: ${updateResult.error.message}`);
                 }
                 
-                // console.log('✅ Profile image updated successfully!');
+                // // console.log('✅ Profile image updated successfully!');
                 toast({ title: "✅ Profile image updated!" });
                 setImageFile(null);
                 setImagePreview(null);
@@ -417,13 +417,13 @@ export default function SettingsPage() {
         if (!imageFile) return;
         setUploading(true);
         try {
-            // console.log('🖼️ Starting profile image upload...');
+            // // console.log('🖼️ Starting profile image upload...');
             
             // Create FormData for file upload
             const formData = new FormData();
             formData.append('file', imageFile);
 
-            // console.log('📤 Uploading file to API...');
+            // // console.log('📤 Uploading file to API...');
             // Upload to our API endpoint
             const response = await fetch('/api/upload-profile-image', {
                 method: 'POST',
@@ -431,24 +431,24 @@ export default function SettingsPage() {
             });
 
             const result = await response.json();
-            // console.log('📥 Upload API response:', result);
+            // // console.log('📥 Upload API response:', result);
 
             if (!response.ok) {
                 throw new Error(result.error || 'Upload failed');
             }
 
             if (result.success) {
-                // console.log('✅ File uploaded successfully, URL:', result.url);
-                // console.log('💾 Updating profile in database...');
+                // // console.log('✅ File uploaded successfully, URL:', result.url);
+                // // console.log('💾 Updating profile in database...');
                 
                 const updateResult = await updateProfile({ profile_image: result.url });
-                // console.log('📊 Profile update result:', updateResult);
+                // // console.log('📊 Profile update result:', updateResult);
                 
                 if (updateResult && updateResult.error) {
                     throw new Error(`Profile update failed: ${updateResult.error.message}`);
                 }
                 
-                // console.log('✅ Profile image updated successfully!');
+                // // console.log('✅ Profile image updated successfully!');
                 toast({ title: "Profile image updated!" });
                 setImageFile(null);
                 setImagePreview(null);

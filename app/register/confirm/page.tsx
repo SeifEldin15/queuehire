@@ -47,12 +47,12 @@ export default function FinalRegistrationPage() {
     useEffect(() => {
         // If no registration data and no URL params, redirect to register
         if (!registrationData.fullName && !fullName) {
-            console.log('No registration data found, redirecting to register');
+            // console.log('No registration data found, redirecting to register');
             router.push('/register');
             return;
         }
         
-        console.log('Registration data available:', profileData);
+        // console.log('Registration data available:', profileData);
     }, [registrationData.fullName, fullName]);
 
     // Real-time password validation
@@ -99,14 +99,14 @@ export default function FinalRegistrationPage() {
             const sanitizedEmail = sanitizeInput(email);
             const sanitizedFullName = sanitizeInput(profileData.fullName);
             
-            console.log('Starting registration with data:', {
+            // console.log('Starting registration with data:', {
                 email: sanitizedEmail,
                 fullName: sanitizedFullName,
                 userType: profileData.userType,
                 profileData
             });
 
-            console.log('🚀 Attempting signup with:', {
+            // console.log('🚀 Attempting signup with:', {
                 email: sanitizedEmail,
                 metadata: {
                     full_name: sanitizedFullName,
@@ -127,11 +127,11 @@ export default function FinalRegistrationPage() {
                 console.error('❌ Registration error:', error);
                 setError(error.message);
             } else {
-                console.log('✅ Registration successful, user created:', data);
+                // console.log('✅ Registration successful, user created:', data);
                 
                 // Handle profile data after successful signup
                 if (data.user) {
-                    console.log('User created successfully. Setting up profile data...');
+                    // console.log('User created successfully. Setting up profile data...');
                     
                     // Since the user needs to confirm their email before being fully authenticated,
                     // we'll save the profile data to localStorage for completion after email confirmation
@@ -144,13 +144,13 @@ export default function FinalRegistrationPage() {
                         profile_image: profileData.profileImage,
                     };
                     
-                    console.log('Saving profile data for completion after email confirmation:', pendingProfile);
+                    // console.log('Saving profile data for completion after email confirmation:', pendingProfile);
                     localStorage.setItem("pendingProfile", JSON.stringify(pendingProfile));
                     
                     // Clear registration data from context since we've moved it to pending profile
                     clearRegistrationData();
                     
-                    console.log('✅ Registration successful - profile will be completed after email confirmation');
+                    // console.log('✅ Registration successful - profile will be completed after email confirmation');
                 }
                 
                 setShowVerificationMessage(true);
