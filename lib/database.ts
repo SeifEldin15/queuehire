@@ -55,10 +55,10 @@ export class DatabaseService {
         return null;
       }
 
-      console.log('Update successful, returning data:', data);
+      // console.log('Update successful, returning data:', data);
       return data;
     } catch (error) {
-      console.error('Error updating user profile:', error);
+      // console.error('Error updating user profile:', error);
       return null;
     }
   }

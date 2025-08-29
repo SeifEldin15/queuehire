@@ -238,7 +238,7 @@ export default function SettingsPage() {
         }
         
         // Validate the field
-        let validation: { isValid: boolean; error?: string } = { isValid: true };
+        let validation: { isValid: boolean; error?: string; formattedUrl?: string } = { isValid: true };
         switch (field) {
             case 'phone':
                 validation = validatePhone(value);
@@ -267,7 +267,9 @@ export default function SettingsPage() {
             // Auto-save after user stops typing (debounced)
             clearTimeout((window as any)[`contactTimer_${field}`]);
             (window as any)[`contactTimer_${field}`] = setTimeout(async () => {
-                await updateProfile({ [field]: value }, `contact_${field}`);
+                // Use formatted URL for website field if available
+                const valueToSave = field === 'website' && validation.formattedUrl ? validation.formattedUrl : value;
+                await updateProfile({ [field]: valueToSave }, `contact_${field}`);
             }, 1000);
         }
     };

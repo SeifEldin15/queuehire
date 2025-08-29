@@ -84,7 +84,7 @@ export const validateEmail = (email: string): boolean => {
 };
 
 // Website/URL validation
-export const validateWebsite = (url: string): { isValid: boolean; error?: string } => {
+export const validateWebsite = (url: string): { isValid: boolean; error?: string; formattedUrl?: string } => {
   if (!url.trim()) {
     return { isValid: true }; // Empty is allowed
   }
@@ -109,7 +109,7 @@ export const validateWebsite = (url: string): { isValid: boolean; error?: string
       return { isValid: false, error: 'Please enter a valid website URL' };
     }
 
-    return { isValid: true };
+    return { isValid: true, formattedUrl: processedUrl };
   } catch {
     return { isValid: false, error: 'Please enter a valid website URL' };
   }

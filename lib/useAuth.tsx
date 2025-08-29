@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // If no profile exists, create a basic one
       if (!data && userId) {
-        console.log('No profile found, creating basic profile for user:', userId);
+        // console.log('No profile found, creating basic profile for user:', userId);
         
         // Get user info from auth
         const { data: authUser, error: userError } = await supabase.auth.getUser();
@@ -53,8 +53,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
         if (authUser.user) {
-          console.log('Auth user data:', authUser.user);
-          console.log('User metadata:', authUser.user.user_metadata);
+          // console.log('Auth user data:', authUser.user);
+          // console.log('User metadata:', authUser.user.user_metadata);
           
           // Check for pending profile data from registration
           let pendingProfile = null;
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const pendingData = localStorage.getItem('pendingProfile');
             if (pendingData) {
               pendingProfile = JSON.parse(pendingData);
-              console.log('Found pending profile data:', pendingProfile);
+              // console.log('Found pending profile data:', pendingProfile);
             }
           } catch (err) {
             console.error('Error parsing pending profile:', err);
@@ -95,10 +95,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (pendingProfile?.profile_image) {
-            console.log('🖼️ Adding profile image from pending profile:', pendingProfile.profile_image);
+            // console.log('🖼️ Adding profile image from pending profile:', pendingProfile.profile_image);
             optionalFields.profile_image = pendingProfile.profile_image;
           } else {
-            console.log('❌ No profile image in pending profile:', pendingProfile?.profile_image);
+            // console.log('❌ No profile image in pending profile:', pendingProfile?.profile_image);
           }
 
           // Default plan type
@@ -106,10 +106,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           const finalProfileData = { ...profileData, ...optionalFields };
           
-          console.log('🏗️ Creating profile with final data:', finalProfileData);
-          console.log('🖼️ Profile image in final data:', finalProfileData.profile_image);
+          // console.log('🏗️ Creating profile with final data:', finalProfileData);
+          // console.log('🖼️ Profile image in final data:', finalProfileData.profile_image);
           
-          console.log('Creating profile with data:', finalProfileData);
+          // console.log('Creating profile with data:', finalProfileData);
           
           const { data: newProfile, error: createError } = await supabase
             .from('users')
@@ -123,14 +123,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return null;
           }
 
-          console.log('Successfully created profile:', newProfile);
+          // console.log('Successfully created profile:', newProfile);
           
           // Clean up pending profile data after successful creation
           try {
             localStorage.removeItem('pendingProfile');
-            console.log('Cleared pending profile data from localStorage');
+            // console.log('Cleared pending profile data from localStorage');
           } catch (err) {
-            console.error('Error clearing pending profile:', err);
+            // console.error('Error clearing pending profile:', err);
           }
           
           return newProfile;
@@ -139,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return data;
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      // console.error('Error fetching profile:', error);
       return null;
     }
   };
@@ -163,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(profileData);
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        // console.error('Error initializing auth:', error);
       } finally {
         setLoading(false);
       }
@@ -192,11 +192,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, metadata?: Record<string, unknown>) => {
     try {
-      console.log('🔐 useAuth.signUp called with:', {
-        email,
-        hasPassword: !!password,
-        metadata
-      });
+      // console.log('🔐 useAuth.signUp called with:', {
+      //   email,
+      //   hasPassword: !!password,
+      //   metadata
+      // });
       
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -206,24 +206,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       });
       
-      console.log('🔄 Supabase signup response:', {
-        user: data?.user ? {
-          id: data.user.id,
-          email: data.user.email,
-          email_confirmed_at: data.user.email_confirmed_at,
-          confirmation_sent_at: data.user.confirmation_sent_at
-        } : null,
-        session: data?.session ? 'Session created' : 'No session',
-        error: error ? {
-          message: error.message,
-          status: error.status,
-          code: error.code
-        } : null
-      });
-      
+
       return { data, error };
     } catch (error) {
-      console.error('💥 Signup error:', error);
+      // console.error('💥 Signup error:', error);
       return { data: null, error: error as AuthError };
     }
   };
@@ -255,14 +241,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateProfile = async (updates: Partial<UserProfile>) => {
     try {
       if (!user) {
-        console.error('❌ updateProfile: No user logged in');
+        // console.error('❌ updateProfile: No user logged in');
         return { error: new Error('No user logged in') };
       }
 
-      console.log('🔄 updateProfile: Updating user profile...', {
-        userId: user.id,
-        updates: updates
-      });
+      // console.log('🔄 updateProfile: Updating user profile...', {
+      //   userId: user.id,
+      //   updates: updates
+      // });
 
       const { data, error } = await supabase
         .from('users')
@@ -270,19 +256,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', user.id)
         .select();
 
-      console.log('📊 updateProfile: Database update result:', { data, error });
+      // console.log('📊 updateProfile: Database update result:', { data, error });
 
       if (error) {
         console.error('❌ updateProfile: Database error:', error);
         return { error };
       }
 
-      console.log('✅ updateProfile: Successfully updated profile');
+      // console.log('✅ updateProfile: Successfully updated profile');
       await refreshProfile();
 
       return { error: null };
     } catch (error) {
-      console.error('❌ updateProfile: Unexpected error:', error);
+      // console.error('❌ updateProfile: Unexpected error:', error);
       return { error };
     }
   };
