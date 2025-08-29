@@ -39,17 +39,17 @@ export default function UpgradePage() {
 
 	const handleUpgrade = async (planType: 'Free' | 'Essential' | 'Power' | 'Pro') => {
 		if (!profile) {
-			console.log("No profile found");
+			// console.log("No profile found");
 			return;
 		}
 
-		console.log("Starting upgrade to:", planType);
-		console.log("Current profile:", profile);
+		// console.log("Starting upgrade to:", planType);
+		// console.log("Current profile:", profile);
 		setUpgrading(planType);
 		
 		try {
 			// Try direct Supabase update first
-			console.log("Attempting direct Supabase update...");
+			// console.log("Attempting direct Supabase update...");
 			const { data: directUpdateData, error: directUpdateError } = await supabase
 				.from('users')
 				.update({ plan_type: planType })
@@ -57,7 +57,7 @@ export default function UpgradePage() {
 				.select()
 				.single();
 
-			console.log("Direct update result:", { directUpdateData, directUpdateError });
+			// console.log("Direct update result:", { directUpdateData, directUpdateError });
 
 			if (directUpdateError) {
 				console.error("Direct update failed:", directUpdateError);
@@ -70,14 +70,14 @@ export default function UpgradePage() {
 				const action = planType === 'Free' ? 'downgraded to' : 'upgraded to';
 				alert(`Successfully ${action} ${planType} plan!`);
 			} else {
-				console.log("No data returned from direct update");
+				// console.log("No data returned from direct update");
 				alert("Failed to update plan. Please try again.");
 			}
 		} catch (error) {
 			console.error("Error updating plan:", error);
 			alert("Failed to update plan. Please try again.");
 		} finally {
-			console.log("Finishing upgrade process");
+			// console.log("Finishing upgrade process");
 			setUpgrading(null);
 		}
 	};
